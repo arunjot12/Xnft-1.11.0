@@ -1,0 +1,93 @@
+[package]
+name = "pallet-xnft"
+authors = ["Anonymous"]
+description = "FRAME pallet template for defining custom runtime logic."
+version = "0.1.0"
+license = "Unlicense"
+homepage = "https://substrate.io"
+repository = "https://github.com/paritytech/substrate/"
+edition = "2021"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.6.12", default-features = false, features = [
+	"derive",
+] }
+serde = { version = "1.0.136", optional = true }
+scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
+frame-benchmarking = { version = "28.0.0", default-features = false, optional = true, git = "https://github.com/paritytech/polkadot-sdk.git", branch = "release-polkadot-v1.11.0" }
+frame-support = { version = "28.0.0", default-features = false, git = "https://github.com/paritytech/polkadot-sdk.git", branch = "release-polkadot-v1.11.0" }
+frame-system = { version = "28.0.0", default-features = false, git = "https://github.com/paritytech/polkadot-sdk.git", branch = "release-polkadot-v1.11.0" }
+pallet-nfts= { default-features = false, git = "https://github.com/paritytech/polkadot-sdk.git", branch = "release-polkadot-v1.11.0" }
+pallet-xcm ={ git = "https://github.com/paritytech/polkadot-sdk.git", default-features = false, branch = "release-polkadot-v1.11.0" }
+xcm ={ package = "staging-xcm", git = "https://github.com/paritytech/polkadot-sdk.git", default-features = false, branch = "release-polkadot-v1.11.0" }
+xcm-executor={ package = "staging-xcm-executor",git = "https://github.com/paritytech/polkadot-sdk.git", default-features = false, branch = "release-polkadot-v1.11.0" }
+xcm-builder ={ package = "staging-xcm-builder",git = "https://github.com/paritytech/polkadot-sdk.git", default-features = false, branch = "release-polkadot-v1.11.0" }
+sp-runtime = { version = "31.0.1",default-features = false, git = "https://github.com/paritytech/polkadot-sdk.git", branch = "release-polkadot-v1.11.0" }
+sp-io = { version = "30.0.0", default-features = false,git = "https://github.com/paritytech/polkadot-sdk.git", branch = "release-polkadot-v1.11.0" }
+sp-std = { default-features = false,git = "https://github.com/paritytech/polkadot-sdk.git", branch = "release-polkadot-v1.11.0" }
+sp-tracing = { default-features = false,git = "https://github.com/paritytech/polkadot-sdk.git", branch = "release-polkadot-v1.11.0" }
+cumulus-primitives-core =  { git ="https://github.com/paritytech/polkadot-sdk.git", branch="release-polkadot-v1.11.0", default-features = false }
+cumulus-pallet-xcm =  { git ="https://github.com/paritytech/polkadot-sdk.git", branch="release-polkadot-v1.11.0", default-features = false }
+pallet-message-queue = {version = "31.0.0",default-features = false, git = "https://github.com/paritytech/polkadot-sdk.git", branch = "release-polkadot-v1.11.0" }
+polkadot-parachain-primitives = {default-features = false, git = "https://github.com/paritytech/polkadot-sdk.git", branch = "release-polkadot-v1.11.0" }
+polkadot-runtime-parachains = {default-features = false, git = "https://github.com/paritytech/polkadot-sdk.git", branch = "release-polkadot-v1.11.0" }
+pallet-balances = { version = "28.0.0", default-features = false, git = "https://github.com/paritytech/polkadot-sdk.git", branch = "release-polkadot-v1.11.0" }
+cumulus-pallet-dmp-queue = {default-features = false, git = "https://github.com/paritytech/polkadot-sdk.git", branch = "release-polkadot-v1.11.0" }
+cumulus-pallet-xcmp-queue = {default-features = false, git = "https://github.com/paritytech/polkadot-sdk.git", branch = "release-polkadot-v1.11.0" }
+node-primitives = { git = "https://github.com/paritytech/polkadot-sdk.git", default-features = false, branch = "release-polkadot-v1.11.0" }
+pallet-babe = { git = "https://github.com/paritytech/polkadot-sdk.git", default-features = false , branch = "release-polkadot-v1.11.0" }
+primitives = {package = "polkadot-primitives", default-features = false, git = "https://github.com/paritytech/polkadot-sdk.git", branch = "release-polkadot-v1.11.0" }
+pallet-timestamp = { default-features = false,git = "https://github.com/paritytech/polkadot-sdk.git", branch = "release-polkadot-v1.11.0" }
+polkadot-runtime-common = {default-features = false, git = "https://github.com/paritytech/polkadot-sdk.git", branch = "release-polkadot-v1.11.0" }
+cumulus-primitives-utility = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "release-polkadot-v1.11.0", default-features = false }
+cumulus-pallet-parachain-system = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "release-polkadot-v1.11.0", default-features = false }
+
+[dev-dependencies]
+sp-core = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "release-polkadot-v1.11.0" }
+xcm-simulator = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "release-polkadot-v1.11.0" }
+frame-support-test = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "release-polkadot-v1.11.0" }
+sp-keystore = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "release-polkadot-v1.11.0" }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"serde",
+	"frame-benchmarking?/std",
+	"pallet-timestamp/std",
+	"polkadot-runtime-common/std",
+	"primitives/std",
+	"frame-support/std",
+    "pallet-xcm/std",
+	"cumulus-primitives-utility/std",
+	"cumulus-pallet-parachain-system/std",
+	"sp-std/std",
+	"pallet-message-queue/std",
+	"pallet-balances/std",
+	"pallet-babe/std",
+	"frame-system/std",
+	"sp-core/std",
+	"sp-io/std",
+	"scale-info/std",
+	"sp-runtime/std",
+    "xcm-executor/std",
+    "xcm/std",
+	"pallet-nfts/std",
+	"polkadot-parachain-primitives/std",
+	 "polkadot-runtime-parachains/std",
+     "xcm-builder/std",
+	 "cumulus-primitives-core/std",
+	 "cumulus-pallet-xcm/std",
+	 "cumulus-pallet-dmp-queue/std",
+	 "cumulus-pallet-xcmp-queue/std",
+	 "node-primitives/std",
+	 "sp-tracing/std"
+]
+
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+	"pallet-xcm/runtime-benchmarks",
+]

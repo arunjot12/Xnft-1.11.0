@@ -1,0 +1,14 @@
+/data/Project/xnft/xnft/pallet-xnft/target/release/deps/libss58_registry-7cd3b4496d4e2b16.rmeta: /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ss58-registry-1.43.0/src/lib.rs /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ss58-registry-1.43.0/src/address_format.rs /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ss58-registry-1.43.0/src/error.rs /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ss58-registry-1.43.0/src/registry.rs /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ss58-registry-1.43.0/src/token.rs /data/Project/xnft/xnft/pallet-xnft/target/release/build/ss58-registry-128ead0b393e57ce/out/registry_gen.rs
+
+/data/Project/xnft/xnft/pallet-xnft/target/release/deps/libss58_registry-7cd3b4496d4e2b16.rlib: /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ss58-registry-1.43.0/src/lib.rs /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ss58-registry-1.43.0/src/address_format.rs /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ss58-registry-1.43.0/src/error.rs /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ss58-registry-1.43.0/src/registry.rs /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ss58-registry-1.43.0/src/token.rs /data/Project/xnft/xnft/pallet-xnft/target/release/build/ss58-registry-128ead0b393e57ce/out/registry_gen.rs
+
+/data/Project/xnft/xnft/pallet-xnft/target/release/deps/ss58_registry-7cd3b4496d4e2b16.d: /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ss58-registry-1.43.0/src/lib.rs /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ss58-registry-1.43.0/src/address_format.rs /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ss58-registry-1.43.0/src/error.rs /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ss58-registry-1.43.0/src/registry.rs /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ss58-registry-1.43.0/src/token.rs /data/Project/xnft/xnft/pallet-xnft/target/release/build/ss58-registry-128ead0b393e57ce/out/registry_gen.rs
+
+/home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ss58-registry-1.43.0/src/lib.rs:
+/home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ss58-registry-1.43.0/src/address_format.rs:
+/home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ss58-registry-1.43.0/src/error.rs:
+/home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ss58-registry-1.43.0/src/registry.rs:
+/home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ss58-registry-1.43.0/src/token.rs:
+/data/Project/xnft/xnft/pallet-xnft/target/release/build/ss58-registry-128ead0b393e57ce/out/registry_gen.rs:
+
+# env-dep:OUT_DIR=/data/Project/xnft/xnft/pallet-xnft/target/release/build/ss58-registry-128ead0b393e57ce/out

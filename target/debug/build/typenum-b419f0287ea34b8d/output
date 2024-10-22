@@ -1,0 +1,3 @@
+cargo:rerun-if-changed=build/main.rs
+cargo:rustc-env=TYPENUM_BUILD_CONSTS=/data/Project/xnft/xnft/pallet-xnft/target/debug/build/typenum-b419f0287ea34b8d/out/consts.rs
+cargo:rustc-env=TYPENUM_BUILD_OP=/data/Project/xnft/xnft/pallet-xnft/target/debug/build/typenum-b419f0287ea34b8d/out/op.rs
