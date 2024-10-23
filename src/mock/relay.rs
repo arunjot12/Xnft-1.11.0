@@ -3,40 +3,43 @@ use crate::{
 	self as pallet_xnft,
 	test::relay::currency::{CENTS, MILLICENTS},
 };
+use frame_support::derive_impl;
 use cumulus_primitives_core::relay_chain::CandidateHash;
 use frame_support::{assert_ok, traits::AsEnsureOriginWithArg};
+use frame_support::traits::QueueFootprint;
+use para::ParachainSystem;
+use sp_runtime::BuildStorage;
+use frame_support::traits::HandleMessage;
 use polkadot_runtime_common::{
 	paras_sudo_wrapper,
 	xcm_sender::{ChildParachainRouter, ExponentialPrice},
 };
 pub use polkadot_runtime_parachains::hrmp;
 use polkadot_runtime_parachains::{
-	dmp as parachains_dmp, paras::ParaGenesisArgs, schedule_para_initialize,
+	dmp as parachains_dmp, schedule_para_initialize,
 };
-
+use frame_support::BoundedSlice;
 use crate::test::*;
 use frame_support::{
 	construct_runtime,
-	dispatch::DispatchClass,
 	pallet_prelude::{DispatchResult, Get},
 	parameter_types,
 	traits::{
-		ConstU128, ConstU16, ConstU32, ConstU64, Currency, Everything, GenesisBuild, Nothing,
+		ConstU32, ConstU64, Currency, Everything, Nothing,
 		ProcessMessage, ProcessMessageError,
 	},
-	weights::{constants::RocksDbWeight, IdentityFee, Weight, WeightMeter},
-	RuntimeDebug,
+	weights::{Weight, WeightMeter},
 };
-use polkadot_parachain::primitives::ValidationCode;
+use polkadot_parachain_primitives::primitives::ValidationCode;
 use sp_runtime::traits::AccountIdConversion;
 
 use crate::test::relay::currency::DOLLARS;
 use cumulus_primitives_core::{
 	relay_chain::{AuthorityDiscoveryId, SessionIndex, ValidatorIndex},
-	ChannelStatus, GetChannelInfo, ParaId,
+	ParaId,
 };
 use frame_support::traits::ValidatorSetWithIdentification;
-use frame_system::{EnsureRoot, EnsureRootWithSuccess, EnsureSigned};
+use frame_system::EnsureRoot;
 use sp_runtime::{transaction_validity::TransactionPriority, Permill};
 use std::{cell::RefCell, collections::HashMap};
 pub mod currency {
@@ -51,17 +54,15 @@ pub mod currency {
 	}
 }
 use sp_runtime::{
-	generic,
-	testing::Header,
-	traits::{AccountIdLookup, BlakeTwo256, IdentityLookup},
-	BoundedVec, DispatchError, MultiSignature,
+	traits::IdentityLookup,
+	MultiSignature,
 };
 pub type Signature = MultiSignature;
 pub type AccountPublic = <Signature as sp_runtime::traits::Verify>::Signer;
 pub type AccountId = <AccountPublic as sp_runtime::traits::IdentifyAccount>::AccountId;
 use crate::test::para::ParachainInfo;
 use frame_support::traits::ValidatorSet;
-use sp_core::H256;
+use sp_runtime::AccountId32;
 use xcm_builder::{EnsureXcmOrigin, NativeAsset};
 use pallet_nfts::PalletFeatures;
 use polkadot_runtime_parachains::{disputes, inclusion, paras, scheduler, session_info};
@@ -75,16 +76,13 @@ pub type BlockNumber = u32;
 pub type Index = u32;
 use xcm::v3::prelude::*;
 use xcm_builder::{
-	AccountId32Aliases, AllowTopLevelPaidExecutionFrom, ChildParachainAsNative,
-	ChildParachainConvertsVia, CurrencyAdapter as XcmCurrencyAdapter, FixedWeightBounds,
-	IsConcrete, SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation,
-	TakeWeightCredit, UsingComponents,
+	AllowTopLevelPaidExecutionFrom,
+	ChildParachainConvertsVia, FixedWeightBounds,
+	SignedToAccountId32,TakeWeightCredit,
 };
 use xcm_executor::XcmExecutor;
 
 type Origin = <Test as frame_system::Config>::RuntimeOrigin;
-use crate::Config;
-
 type Balance = u128;
 
 pub fn root_user() -> Origin {
@@ -114,7 +112,7 @@ construct_runtime!(
 		NodeBlock = Block,
 		UncheckedExtrinsic = UncheckedExtrinsics,
 	{
-		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances,
 		ParasOrigin: origin,
 		MessageQueue: pallet_message_queue,
@@ -144,43 +142,13 @@ where
 	type OverarchingCall = RuntimeCall;
 }
 impl paras_sudo_wrapper::Config for Test {}
-pub struct ChannelInfo;
-impl GetChannelInfo for ChannelInfo {
-	fn get_channel_status(_id: ParaId) -> ChannelStatus {
-		ChannelStatus::Ready(10, 10)
-	}
-	fn get_channel_max(_id: ParaId) -> Option<usize> {
-		Some(usize::max_value())
-	}
-}
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	//type Nonce = u64;
-	type Index = Index;
-	type BlockNumber = BlockNumber;
-	type Hash = H256;
-	type Header = generic::Header<BlockNumber, BlakeTwo256>;
-	type Hashing = BlakeTwo256;
-	type AccountId = AccountId;
+	type Block = Block;
+	type AccountId = AccountId32;
 	type Lookup = IdentityLookup<Self::AccountId>;
-	//type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ();
-	type DbWeight = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
 }
 
 parameter_types! {
@@ -243,8 +211,6 @@ impl pallet_balances::Config for Test {
 	type WeightInfo = ();
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
-	type HoldIdentifier = ();
-	type MaxHolds = ();
 }
 parameter_types! {
 	pub const ParasUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
@@ -437,10 +403,8 @@ impl cumulus_pallet_xcm::Config for Test {
 
 impl cumulus_pallet_xcmp_queue::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type XcmExecutor = XcmExecutor<XcmConfig>;
-	type ChannelInfo = ChannelInfo;
+	type ChannelInfo = ParachainSystem;
 	type VersionWrapper = ();
-	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
 	type ControllerOrigin = EnsureRoot<AccountId>;
 	type ControllerOriginConverter = ();
 	type WeightInfo = ();
@@ -491,10 +455,39 @@ parameter_types! {
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
+
+parameter_types! {
+	/// All messages that came into the `DmpSink`.
+	pub static RecordedMessages: Vec<Vec<u8>> = vec![];
+}
+
+/// Can be used as [`Config::DmpSink`] to record all messages that came in.
+pub struct RecordingDmpSink;
+impl HandleMessage for RecordingDmpSink {
+	type MaxMessageLen = ConstU32<16>;
+
+	fn handle_message(msg: BoundedSlice<u8, Self::MaxMessageLen>) {
+		RecordedMessages::mutate(|n| n.push(msg.to_vec()));
+	}
+
+	fn handle_messages<'a>(_: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>) {
+		unimplemented!()
+	}
+
+	fn sweep_queue() {
+		unimplemented!()
+	}
+
+	fn footprint() -> QueueFootprint {
+		unimplemented!()
+	}
+}
+
+
 impl cumulus_pallet_dmp_queue::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type XcmExecutor = XcmExecutor<XcmConfig>;
-	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
+	type DmpSink = RecordingDmpSink;
+	type WeightInfo = ();
 }
 
 impl parachains_dmp::Config for Test {}
@@ -614,24 +607,6 @@ impl pallet_xnft::Config for Test {
 	type Helper = ();
 }
 
-pub fn new_test_ext(state: MockGenesisConfig) -> sp_io::TestExternalities {
-	use sp_keystore::{testing::MemoryKeystore, KeystoreExt, KeystorePtr};
-	use sp_std::sync::Arc;
-
-	sp_tracing::try_init_simple();
-
-	BACKING_REWARDS.with(|r| r.borrow_mut().clear());
-	AVAILABILITY_REWARDS.with(|r| r.borrow_mut().clear());
-
-	let mut t = state.system.build_storage::<Test>().unwrap();
-	state.configuration.assimilate_storage(&mut t).unwrap();
-	GenesisBuild::<Test>::assimilate_storage(&state.paras, &mut t).unwrap();
-
-	let mut ext: sp_io::TestExternalities = t.into();
-	ext.register_extension(KeystoreExt(Arc::new(MemoryKeystore::new()) as KeystorePtr));
-
-	ext
-}
 pub struct ExtBuilder;
 
 impl Default for ExtBuilder {
@@ -661,13 +636,6 @@ where
 	{
 		assert_eq!((i, got), (i, want));
 	}
-}
-
-#[derive(Default)]
-pub struct MockGenesisConfig {
-	pub system: frame_system::GenesisConfig,
-	pub configuration: configuration::GenesisConfig<Test>,
-	pub paras: paras::GenesisConfig,
 }
 
 pub fn sudo_establish_hrmp_channel(

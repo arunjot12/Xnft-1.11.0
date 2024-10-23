@@ -1,0 +1,1 @@
+ProcessXcmMessage<staging_xcm::v3::Junction, XcmExecutor<mock::relay::XcmConfig>, mock::relay::RuntimeCall>

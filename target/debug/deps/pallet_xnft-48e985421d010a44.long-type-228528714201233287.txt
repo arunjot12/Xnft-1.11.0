@@ -1,0 +1,1 @@
+ExponentialPrice<FeeAssetId, BaseDeliveryFee, TransactionByteFee, polkadot_runtime_parachains::dmp::Pallet<mock::relay::Test>>

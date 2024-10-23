@@ -1,0 +1,1 @@
+(ParentIsPreset<sp_runtime::AccountId32>, SiblingParachainConvertsVia<polkadot_parachain_primitives::primitives::Sibling, sp_runtime::AccountId32>, AccountId32Aliases<mock::para::RelayNetwork, sp_runtime::AccountId32>)

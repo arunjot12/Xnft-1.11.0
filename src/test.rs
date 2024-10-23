@@ -1,8 +1,10 @@
 #![cfg(test)]
+use std::sync::Arc;
+
 use super::*;
 use crate::{
 	mock::relay::{
-		new_test_ext, Configuration, MockGenesisConfig, Paras, ParasShared,
+		Configuration, Paras, ParasShared,
 		RuntimeEvent as MockEvent, System, Test,
 	},
 	test::{
@@ -11,16 +13,18 @@ use crate::{
 		relay::{hrmp, register_parachain_with_balance, BlockNumber},
 	},
 };
-use cumulus_primitives_core::ParaId;
-use frame_support::{assert_noop, assert_ok, pallet_prelude::DispatchResult, traits::Currency};
-use frame_support_test::pallet_prelude::OriginFor;
-use mock::relay::Hrmp;
+use crate::Junctions::X1;
+use frame_support::{assert_noop, assert_ok,traits::Currency};
 pub use mock::*;
 //use pallet_nfts::types::*;
-use polkadot_parachain::primitives::{HrmpChannelId, Sibling};
-use polkadot_runtime_parachains::{hrmp as OtherModule, Origin};
+use polkadot_parachain_primitives::primitives::Sibling;
 use sp_runtime::{traits::AccountIdConversion, AccountId32};
 use xcm_simulator::TestExt;
+type AccountIdOf<Test> = <Test as frame_system::Config>::AccountId;
+fn account(id: AccountId32) -> u64 {
+	let account :u64 = [id; 32].into();
+	account
+}
 
 macro_rules! bvec {
 	($( $x:tt )*) => {
@@ -95,8 +99,8 @@ fn create() {
 	let fetch = initialize_param();
 	Para1::execute_with(|| {
 		assert_ok!(NFT::create(
-			RuntimeOrigin::signed(ALICE),
-			ALICE,
+			RuntimeOrigin::signed(account(ALICE)),
+			account(ALICE),
 			collection_config_with_all_settings_enabled(),
 		));
 	})
@@ -106,7 +110,7 @@ fn set_collection_metadata() {
 	let fetch = initialize_param();
 	Para1::execute_with(|| {
 		assert_ok!(NFT::set_collection_metadata(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			bvec![0u8; 20],
 		));
@@ -117,11 +121,11 @@ fn collection_transfer() {
 	let fetch = initialize_param();
 	Para1::execute_with(|| {
 		assert_ok!(ParaChain1::collection_transfer(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.sibling_account2.clone(),
 			fetch.collection_id,
 			fetch.dest_collection_id,
-			MultiLocation::new(1, X1(Parachain(2001))),
+			Location::new(1, X1(Arc::new([Parachain(2001); 1]))),
 			collection_config_with_all_settings_enabled(),
 		));
 	})
@@ -131,10 +135,10 @@ fn mint_nft() {
 	let fetch = initialize_param();
 	Para1::execute_with(|| {
 		assert_ok!(NFT::mint(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			fetch.item_id,
-			ALICE,
+			account(ALICE),
 			None,
 		));
 	})
@@ -144,7 +148,7 @@ fn set_nft_metadata() {
 	let fetch = initialize_param();
 	Para1::execute_with(|| {
 		assert_ok!(NFT::set_metadata(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			fetch.item_id,
 			bvec![0u8; 20],
@@ -161,11 +165,11 @@ fn collection_transfer_works() {
 	set_collection_metadata();
 	Para1::execute_with(|| {
 		assert_ok!(ParaChain1::collection_transfer(
-			RuntimeOrigin::signed(ALICE),
-			fetch.sibling_account2,
+			RuntimeOrigin::signed(account(ALICE)),
+			account(fetch.sibling_account2),
 			fetch.collection_id,
 			fetch.dest_collection_id,
-			MultiLocation::new(1, X1(Parachain(2001),)),
+			Location::new(1, X1(Arc::new([Parachain(2001); 1]))),
 			collection_config_with_all_settings_enabled(),
 		));
 	});
@@ -180,11 +184,11 @@ fn collection_transfer_owner_mismatch() {
 	Para1::execute_with(|| {
 		assert_noop!(
 			ParaChain1::collection_transfer(
-				RuntimeOrigin::signed(BOB),
+				RuntimeOrigin::signed(account(BOB)),
 				fetch.sibling_account2,
 				fetch.collection_id,
 				fetch.dest_collection_id,
-				MultiLocation::new(1, X1(Parachain(2001))),
+				Location::new(1, X1(Arc::new([Parachain(2001); 1]))),
 				collection_config_with_all_settings_enabled(),
 			),
 			Error::<Test>::NoTCollectionOwner
@@ -202,11 +206,11 @@ fn collection_transfer_fails_for_nonexistent_collection() {
 	Para1::execute_with(|| {
 		assert_noop!(
 			ParaChain1::collection_transfer(
-				RuntimeOrigin::signed(ALICE),
-				fetch.sibling_account2,
+				RuntimeOrigin::signed(account(ALICE)),
+				account(fetch.sibling_account2),
 				new_collection_id,
 				fetch.dest_collection_id,
-				MultiLocation::new(1, X1(Parachain(2001),)),
+				Location::new(1, X1(Arc::new([Parachain(2001); 1]))),
 				collection_config_with_all_settings_enabled(),
 			),
 			Error::<Test>::NoSuchCollectionId
@@ -226,14 +230,14 @@ fn nft_transfer_works() {
 	collection_transfer();
 	Para1::execute_with(|| {
 		assert_ok!(ParaChain1::nft_transfer(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			fetch.item_id,
 			fetch.dest_collection_id,
 			fetch.dest_item_id,
 			fetch.sibling_account1.clone(),
-			owner,
-			MultiLocation::new(1, X1(Parachain(2001))),
+			account(owner),
+			Location::new(1, X1(Arc::new([Parachain(2001); 1]))),
 		));
 	});
 }
@@ -257,7 +261,7 @@ fn nft_transfer_fails_owner_mismatch() {
 				fetch.dest_item_id,
 				fetch.sibling_account2,
 				owner,
-				MultiLocation::new(1, X1(Parachain(2001))),
+				Location::new(1, X1(Arc::new([Parachain(2001); 1]))),
 			),
 			Error::<Test>::NoTNftOwner
 		);
@@ -277,14 +281,14 @@ fn nft_transfer_fails_for_nonexistent_collection_id() {
 	Para1::execute_with(|| {
 		assert_noop!(
 			ParaChain1::nft_transfer(
-				RuntimeOrigin::signed(ALICE),
+				RuntimeOrigin::signed(account(ALICE)),
 				collection_id1,
 				fetch.item_id,
 				fetch.dest_collection_id,
 				fetch.dest_item_id,
 				fetch.sibling_account2,
 				owner1,
-				MultiLocation::new(1, X1(Parachain(2001))),
+				Location::new(1, X1(Arc::new([Parachain(2001); 1]))),
 			),
 			Error::<Test>::NoSuchCollectionId
 		);
@@ -304,14 +308,14 @@ fn nft_transfer_fails_for_nonexistent_item_id() {
 	Para1::execute_with(|| {
 		assert_noop!(
 			ParaChain1::nft_transfer(
-				RuntimeOrigin::signed(ALICE),
+				RuntimeOrigin::signed(account(ALICE)),
 				fetch.collection_id,
 				item_id1,
 				fetch.dest_collection_id,
 				fetch.dest_item_id,
 				fetch.sibling_account2,
 				owner1,
-				MultiLocation::new(1, X1(Parachain(2001))),
+				Location::new(1, X1(Arc::new([Parachain(2001); 1]))),
 			),
 			Error::<Test>::NoSuchItemId
 		);
@@ -327,10 +331,10 @@ fn collection_ownership_transfer_works() {
 	collection_transfer();
 	Para1::execute_with(|| {
 		assert_ok!(ParaChain1::transfer_collection_ownership(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.sibling_account2.clone(),
 			fetch.collection_id,
-			MultiLocation::new(1, X1(Parachain(2001),)),
+			Location::new(1, X1(Arc::new([Parachain(2001); 1]))),
 		));
 	});
 }
@@ -345,10 +349,10 @@ fn collection_ownership_transfer_fails_ownermismatch() {
 	Para1::execute_with(|| {
 		assert_noop!(
 			ParaChain1::transfer_collection_ownership(
-				RuntimeOrigin::signed(BOB),
-				fetch.sibling_account2.clone(),
+				RuntimeOrigin::signed(account(BOB)),
+				account(fetch.sibling_account2.clone()),
 				fetch.collection_id,
-				MultiLocation::new(1, X1(Parachain(2001))),
+				Location::new(1, X1(Arc::new([Parachain(2001); 1]))),
 			),
 			Error::<Test>::NoTCollectionOwner
 		);
@@ -366,10 +370,10 @@ fn collection_ownership_transfer_fails_no_collection_id() {
 	Para1::execute_with(|| {
 		assert_noop!(
 			ParaChain1::transfer_collection_ownership(
-				RuntimeOrigin::signed(ALICE),
-				fetch.sibling_account2.clone(),
+				RuntimeOrigin::signed(account(ALICE)),
+				account(fetch.sibling_account2.clone()),
 				collection_id1,
-				MultiLocation::new(1, X1(Parachain(2001))),
+				Location::new(1, X1(Arc::new([Parachain(2001); 1]))),
 			),
 			Error::<Test>::NoSuchCollectionId
 		);
@@ -390,27 +394,27 @@ fn multinft_transfer_works() {
 	collection_transfer();
 	Para1::execute_with(|| {
 		assert_ok!(NFT::mint(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			item_id_1,
-			ALICE,
+			account(ALICE),
 			None,
 		));
 		assert_ok!(NFT::mint(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			item_id_2,
-			ALICE,
+			account(ALICE),
 			None,
 		));
 		assert_ok!(ParaChain1::transfer_multi_nfts(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			multi_fetch.collection_id,
 			multi_fetch.item_id,
 			multi_fetch.dest_collection_id,
 			multi_fetch.dest_item_id,
-			multi_fetch.sibling_account1.clone(),
-			MultiLocation::new(1, X1(Parachain(2001))),
+			account(multi_fetch.sibling_account1.clone()),
+			Location::new(1, X1(Arc::new([Parachain(2001); 1]))),
 		));
 	});
 }
@@ -429,28 +433,28 @@ fn multinft_transfer_fails_owner_mismatch() {
 	collection_transfer();
 	Para1::execute_with(|| {
 		assert_ok!(NFT::mint(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			item_id_1,
-			ALICE,
+			account(ALICE),
 			None,
 		));
 		assert_ok!(NFT::mint(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			item_id_2,
-			ALICE,
+			account(ALICE),
 			None,
 		));
 		assert_noop!(
 			ParaChain1::transfer_multi_nfts(
-				RuntimeOrigin::signed(BOB),
+				RuntimeOrigin::signed(account(BOB)),
 				multi_fetch.collection_id,
 				multi_fetch.item_id,
 				multi_fetch.dest_collection_id,
 				multi_fetch.dest_item_id,
-				multi_fetch.sibling_account1.clone(),
-				MultiLocation::new(1, X1(Parachain(2001))),
+				account(multi_fetch.sibling_account1.clone()),
+				Location::new(1, X1(Arc::new([Parachain(2001); 1]))),
 			),
 			Error::<Test>::NoTNftOwner
 		);
@@ -472,28 +476,28 @@ fn multinft_transfer_fails_for_nonexistent_collection_id() {
 	collection_transfer();
 	Para1::execute_with(|| {
 		assert_ok!(NFT::mint(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			item_id_1,
-			ALICE,
+			account(ALICE),
 			None,
 		));
 		assert_ok!(NFT::mint(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			item_id_2,
-			ALICE,
+			account(ALICE),
 			None,
 		));
 		assert_noop!(
 			ParaChain1::transfer_multi_nfts(
-				RuntimeOrigin::signed(ALICE),
+				RuntimeOrigin::signed(account(ALICE)),
 				new_collection_id,
 				multi_fetch.item_id,
 				multi_fetch.dest_collection_id,
 				multi_fetch.dest_item_id,
 				multi_fetch.sibling_account1.clone(),
-				MultiLocation::new(1, X1(Parachain(2001))),
+				Location::new(1, X1(Arc::new([Parachain(2001); 1]))),
 			),
 			Error::<Test>::NoSuchCollectionId
 		);
@@ -515,28 +519,28 @@ fn multinft_transfer_fails_for_nonexistent_item_id() {
 	collection_transfer();
 	Para1::execute_with(|| {
 		assert_ok!(NFT::mint(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			item_id_1,
-			ALICE,
+			account(ALICE),
 			None,
 		));
 		assert_ok!(NFT::mint(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			item_id_2,
-			ALICE,
+			account(ALICE),
 			None,
 		));
 		assert_noop!(
 			ParaChain1::transfer_multi_nfts(
-				RuntimeOrigin::signed(ALICE),
+				RuntimeOrigin::signed(account(ALICE)),
 				multi_fetch.collection_id,
 				new_item_id,
 				multi_fetch.dest_collection_id,
 				multi_fetch.dest_item_id,
 				multi_fetch.sibling_account1.clone(),
-				MultiLocation::new(1, X1(Parachain(2001))),
+				Location::new(1, X1(Arc::new([Parachain(2001); 1]))),
 			),
 			Error::<Test>::NoSuchItemId
 		);
@@ -556,34 +560,34 @@ fn transfer_nfts_ownership_works() {
 	collection_transfer();
 	Para1::execute_with(|| {
 		assert_ok!(NFT::mint(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			item_id_1,
-			ALICE,
+			account(ALICE),
 			None,
 		));
 		assert_ok!(NFT::mint(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			item_id_2,
-			ALICE,
+			account(ALICE),
 			None,
 		));
 		assert_ok!(ParaChain1::transfer_multi_nfts(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			multi_fetch.collection_id,
 			multi_fetch.item_id,
 			multi_fetch.dest_collection_id,
 			multi_fetch.dest_item_id.clone(),
 			multi_fetch.sibling_account1.clone(),
-			MultiLocation::new(1, X1(Parachain(2001))),
+			Location::new(1, X1(Arc::new([Parachain(2001); 1]))),
 		));
 		assert_ok!(ParaChain1::transfer_nfts_ownership(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			BOB,
 			multi_fetch.dest_collection_id,
 			multi_fetch.dest_item_id,
-			MultiLocation::new(1, X1(Parachain(2001))),
+			Location::new(1, X1(Arc::new([Parachain(2001); 1]))),
 		));
 	});
 }
@@ -604,45 +608,45 @@ fn transfer_nfts_ownership_fails_limit_exceeds() {
 	collection_transfer();
 	Para1::execute_with(|| {
 		assert_ok!(NFT::mint(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			item_id_1,
-			ALICE,
+			account(ALICE),
 			None,
 		));
 		assert_ok!(NFT::mint(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			item_id_2,
-			ALICE,
+			account(ALICE),
 			None,
 		));
 		assert_ok!(NFT::mint(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			item_id_3,
-			ALICE,
+			account(ALICE),
 			None,
 		));
 		assert_noop!(
 			ParaChain1::transfer_multi_nfts(
-				RuntimeOrigin::signed(ALICE),
+				RuntimeOrigin::signed(account(ALICE)),
 				multi_fetch.collection_id,
 				new_item_id,
 				multi_fetch.dest_collection_id,
 				new_dest_item_id.clone(),
 				multi_fetch.sibling_account1.clone(),
-				MultiLocation::new(1, X1(Parachain(2001))),
+				Location::new(1, X1(Arc::new([Parachain(2001); 1]))),
 			),
 			Error::<Test>::MaxItemCountExceeded
 		);
 		assert_noop!(
 			ParaChain1::transfer_nfts_ownership(
-				RuntimeOrigin::signed(ALICE),
-				BOB,
+				RuntimeOrigin::signed(account(ALICE)),
+				account(BOB),
 				multi_fetch.dest_collection_id,
 				new_dest_item_id,
-				MultiLocation::new(1, X1(Parachain(2001))),
+				Location::new(1, X1(Arc::new([Parachain(2001); 1]))),
 			),
 			Error::<Test>::MaxItemCountExceeded
 		);
@@ -662,51 +666,51 @@ fn transfer_nft_metadata_works() {
 	collection_transfer();
 	Para1::execute_with(|| {
 		assert_ok!(NFT::mint(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			item_id_1,
-			ALICE,
+			account(ALICE),
 			None,
 		));
 		assert_ok!(NFT::mint(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			item_id_2,
-			ALICE,
+			account(ALICE),
 			None,
 		));
 		assert_ok!(NFT::set_metadata(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			fetch.item_id,
 			bvec![0u8; 20],
 		));
 		assert_ok!(NFT::set_metadata(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			item_id_1,
 			bvec![0u8; 20],
 		));
 		assert_ok!(NFT::set_metadata(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			item_id_2,
 			bvec![0u8; 20],
 		));
 		assert_ok!(ParaChain1::transfer_multi_nfts(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			multi_fetch.collection_id,
 			multi_fetch.item_id,
 			multi_fetch.dest_collection_id,
 			multi_fetch.dest_item_id.clone(),
 			multi_fetch.sibling_account1.clone(),
-			MultiLocation::new(1, X1(Parachain(2001))),
+			Location::new(1, X1(Arc::new([Parachain(2001); 1]))),
 		));
 		assert_ok!(ParaChain1::transfer_nft_metadata(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			multi_fetch.dest_collection_id,
 			multi_fetch.dest_item_id,
-			MultiLocation::new(1, X1(Parachain(2001))),
+			Location::new(1, X1(Arc::new([Parachain(2001); 1]))),
 		));
 	});
 }
@@ -727,56 +731,56 @@ fn transfer_nft_metadata_fails_limit_exceeds() {
 	collection_transfer();
 	Para1::execute_with(|| {
 		assert_ok!(NFT::mint(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			item_id_1,
-			ALICE,
+			account(ALICE),
 			None,
 		));
 		assert_ok!(NFT::mint(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			item_id_2,
-			ALICE,
+			account(ALICE),
 			None,
 		));
 		assert_ok!(NFT::mint(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			item_id_3,
-			ALICE,
+			account(ALICE),
 			None,
 		));
 		assert_ok!(NFT::set_metadata(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			fetch.item_id,
 			bvec![0u8; 20],
 		));
 		assert_ok!(NFT::set_metadata(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			item_id_1,
 			bvec![0u8; 20],
 		));
 		assert_noop!(
 			ParaChain1::transfer_multi_nfts(
-				RuntimeOrigin::signed(ALICE),
+				RuntimeOrigin::signed(account(ALICE)),
 				multi_fetch.collection_id,
 				new_item_id,
 				multi_fetch.dest_collection_id,
 				new_dest_item_id.clone(),
 				multi_fetch.sibling_account1.clone(),
-				MultiLocation::new(1, X1(Parachain(2001))),
+				Location::new(1, X1(Arc::new([Parachain(2001); 1]))),
 			),
 			Error::<Test>::MaxItemCountExceeded
 		);
 		assert_noop!(
 			ParaChain1::transfer_nft_metadata(
-				RuntimeOrigin::signed(ALICE),
+				RuntimeOrigin::signed(account(ALICE)),
 				multi_fetch.dest_collection_id,
 				new_dest_item_id,
-				MultiLocation::new(1, X1(Parachain(2001))),
+				Location::new(1, X1(Arc::new([Parachain(2001); 1]))),
 			),
 			Error::<Test>::MaxDestItemCountExceeded
 		);
@@ -796,54 +800,54 @@ fn transfer_nft_metadata_fails_ownermismatch() {
 	collection_transfer();
 	Para1::execute_with(|| {
 		assert_ok!(NFT::mint(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			item_id_1,
-			ALICE,
+			account(ALICE),
 			None,
 		));
 		assert_ok!(NFT::mint(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			item_id_2,
-			ALICE,
+			account(ALICE),
 			None,
 		));
 		assert_ok!(NFT::set_metadata(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			fetch.item_id,
 			bvec![0u8; 20],
 		));
 		assert_ok!(NFT::set_metadata(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			item_id_1,
 			bvec![0u8; 20],
 		));
 		assert_ok!(NFT::set_metadata(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			fetch.collection_id,
 			item_id_2,
 			bvec![0u8; 20],
 		));
 		assert_ok!(ParaChain1::transfer_multi_nfts(
-			RuntimeOrigin::signed(ALICE),
+			RuntimeOrigin::signed(account(ALICE)),
 			multi_fetch.collection_id,
 			multi_fetch.item_id,
 			multi_fetch.dest_collection_id,
 			multi_fetch.dest_item_id.clone(),
 			multi_fetch.sibling_account1.clone(),
-			MultiLocation::new(1, X1(Parachain(2001))),
+			Location::new(1, X1(Arc::new([Parachain(2001); 1]))),
 		));
 		assert_noop!(
 			ParaChain1::transfer_nft_metadata(
-				RuntimeOrigin::signed(BOB),
+				RuntimeOrigin::signed(account(BOB)),
 				multi_fetch.dest_collection_id,
 				multi_fetch.dest_item_id,
-				MultiLocation::new(1, X1(Parachain(2001))),
+				Location::new(1, X1(Arc::new([Parachain(2001); 1]))),
 			),
 			Error::<Test>::NotTheOwner
 		);
 	});
-}
+}	

@@ -1,39 +1,42 @@
 #![cfg(test)]
 use crate::{self as pallet_xnft};
-
-use crate::test::*;
-use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
+use frame_support::derive_impl;
+use crate::test::relay::BaseDeliveryFee;
+use frame_support::traits::TransformOrigin;
+use xcm_builder::ParentAsSuperuser;
+use sp_runtime::BuildStorage;
+use cumulus_primitives_core::AggregateMessageOrigin;
+use crate::test::relay::FeeAssetId;
+use parachains_common::message_queue::ParaIdToSibling;
+use crate::test::relay::TransactionByteFee;
 use frame_support::{
 	construct_runtime, match_types,
-	pallet_prelude::{DispatchResult, Get},
+	pallet_prelude::Get,
 	parameter_types,
 	traits::{
-		AsEnsureOriginWithArg, ConstU128, ConstU16, ConstU32, ConstU64, Currency, Everything,
-		Nothing,
+		AsEnsureOriginWithArg, ConstU32, ConstU64, Everything,
 	},
-	weights::constants::{RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND},
+	weights::constants::WEIGHT_REF_TIME_PER_SECOND,
 };
-use frame_system::{EnsureRoot, EnsureRootWithSuccess, EnsureSigned};
-
-use sp_runtime::{generic, BoundedVec};
+use frame_system::EnsureRoot;
+use cumulus_pallet_parachain_system::ParachainSetCode;
 pub use sp_runtime::{
 	testing::Header,
 	traits::{AccountIdLookup, BlakeTwo256, IdentityLookup},
 	DispatchError, MultiSignature,
 };
-
+use polkadot_runtime_common::BlockHashCount;
 use crate::test::para::currency::DOLLARS;
-
-use sp_core::{H256, U256};
-
+use crate::test::relay::MessageQueue;
 pub type CollectionId = u64;
 type Origin = <Test as frame_system::Config>::RuntimeOrigin;
-use crate::Config;
 type Balance = u128;
-use cumulus_primitives_core::{ChannelStatus, GetChannelInfo, ParaId};
+use sp_version::create_runtime_str;
+use cumulus_primitives_core::ParaId;
 use pallet_nfts::PalletFeatures;
+use sp_version::RuntimeVersion;
 use pallet_xcm::XcmPassthrough;
-use polkadot_parachain::primitives::Sibling;
+use polkadot_parachain_primitives::primitives::Sibling;
 use xcm::v3::{prelude::*, Weight};
 use xcm_builder::{
 	AccountId32Aliases, AllowTopLevelPaidExecutionFrom, EnsureXcmOrigin, FixedWeightBounds,
@@ -42,7 +45,7 @@ use xcm_builder::{
 	SovereignSignedViaLocation, TakeWeightCredit,
 };
 use xcm_executor::XcmExecutor;
-
+use cumulus_pallet_parachain_system::AnyRelayNumber;
 pub mod currency {
 	use node_primitives::Balance;
 
@@ -86,7 +89,7 @@ construct_runtime!(
 		NodeBlock = Block,
 		UncheckedExtrinsic = UncheckedExtrinsics,
 	{
-		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances,
 		ParachainInfo: parachain_info,
 		XcmpQueue: cumulus_pallet_xcmp_queue,
@@ -99,44 +102,39 @@ construct_runtime!(
 	}
 );
 
+#[sp_version::runtime_version]
+pub const VERSION: RuntimeVersion = RuntimeVersion {
+	spec_name: create_runtime_str!("parachain"),
+	impl_name: create_runtime_str!("parachain"),
+	authoring_version: 1,
+	spec_version: 1,
+	impl_version: 0,
+	apis: RUNTIME_API_VERSIONS,
+	transaction_version: 1,
+	state_version: 1,
+};
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	//type Block = Block;
-	type BlockLength = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type Index = Index;
-	type BlockNumber = BlockNumber;
-	type Header = generic::Header<BlockNumber, BlakeTwo256>;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = AccountId;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ();
-	type DbWeight = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = pallet_balances::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
-	type MaxConsumers = ConstU32<16>;
+	type Block = Block;
+	type BlockHashCount = BlockHashCount;
+	type Version = Version;
+	type OnSetCode = ParachainSetCode<Self>;
 }
+
+pub struct SaveIntoThreadLocal;
 
 impl cumulus_pallet_parachain_system::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type OnSystemEvent = ();
-	type SelfParaId = parachain_info::Pallet<Test>;
+	type SelfParaId =  parachain_info::Pallet<Test>;
 	type OutboundXcmpMessageSource = XcmpQueue;
-	type DmpMessageHandler = DmpQueue;
+	type DmpQueue = frame_support::traits::EnqueueWithOrigin<MessageQueue, RelayOrigin>;
 	type ReservedDmpWeight = ReservedDmpWeight;
-	type XcmpMessageHandler = XcmpQueue;
+	type XcmpMessageHandler = SaveIntoThreadLocal;
 	type ReservedXcmpWeight = ReservedXcmpWeight;
-	type CheckAssociatedRelayNumber = RelayNumberStrictlyIncreases;
+	type CheckAssociatedRelayNumber = AnyRelayNumber;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -207,13 +205,12 @@ impl pallet_balances::Config for Test {
 	type WeightInfo = ();
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
-	type HoldIdentifier = ();
-	type MaxHolds = ();
 }
 
 parameter_types! {
 	pub const ReservedXcmpWeight: Weight = Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND.saturating_div(4), 0);
 	pub const ReservedDmpWeight: Weight = Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND.saturating_div(4), 0);
+	pub const RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
 }
 
 impl parachain_info::Config for Test {}
@@ -293,32 +290,49 @@ impl xcm_executor::Config for XcmConfig {
 	type SafeCallFilter = Everything;
 }
 
-pub struct ChannelInfo;
-impl GetChannelInfo for ChannelInfo {
-	fn get_channel_status(_id: ParaId) -> ChannelStatus {
-		ChannelStatus::Ready(10, 10)
-	}
-	fn get_channel_max(_id: ParaId) -> Option<usize> {
-		Some(usize::max_value())
-	}
-}
+pub type PriceForSiblingParachainDelivery = polkadot_runtime_common::xcm_sender::ExponentialPrice<
+	FeeAssetId,
+	BaseDeliveryFee,
+	TransactionByteFee,
+	XcmpQueue,
+>;
+
+pub type XcmOriginToTransactDispatchOrigin = (
+	// Sovereign account converter; this attempts to derive an `AccountId` from the origin location
+	// using `LocationToAccountId` and then turn that into the usual `Signed` origin. Useful for
+	// foreign chains who want to have a local sovereign account on this chain which they control.
+	SovereignSignedViaLocation<LocationToAccountId, RuntimeOrigin>,
+	// Native converter for Relay-chain (Parent) location; will convert to a `Relay` origin when
+	// recognized.
+	RelayChainAsNative<RelayChainOrigin, RuntimeOrigin>,
+	// Native converter for sibling Parachains; will convert to a `SiblingPara` origin when
+	// recognized.
+	SiblingParachainAsNative<cumulus_pallet_xcm::Origin, RuntimeOrigin>,
+	// Superuser converter for the Relay-chain (Parent) location. This will allow it to issue a
+	// transaction from the Root origin.
+	ParentAsSuperuser<RuntimeOrigin>,
+	// Native signed account converter; this just converts an `AccountId32` origin into a normal
+	// `RuntimeOrigin::Signed` origin of the same 32-byte value.
+	SignedAccountId32AsNative<RelayNetwork, RuntimeOrigin>,
+	// Xcm origins can be represented natively under the Xcm pallet's Xcm origin.
+	XcmPassthrough<RuntimeOrigin>,
+);
 
 impl cumulus_pallet_xcmp_queue::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type XcmExecutor = XcmExecutor<XcmConfig>;
-	type ChannelInfo = ChannelInfo;
-	type VersionWrapper = ();
-	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
+	type ChannelInfo = ParachainSystem;
+	type VersionWrapper = PolkadotXcm;
+	// Enqueue XCMP messages from siblings for later processing.
+	type XcmpQueue = TransformOrigin<MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSibling>;
+	type MaxInboundSuspended = sp_core::ConstU32<1_000>;
 	type ControllerOrigin = EnsureRoot<AccountId>;
-	type ControllerOriginConverter = ();
+	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	type WeightInfo = ();
-	type PriceForSiblingDelivery = ();
+	type PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
 }
 
 impl cumulus_pallet_dmp_queue::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type XcmExecutor = XcmExecutor<XcmConfig>;
-	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
 }
 
 impl cumulus_pallet_xcm::Config for Test {
