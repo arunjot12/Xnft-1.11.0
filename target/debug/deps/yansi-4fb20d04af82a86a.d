@@ -1,0 +1,12 @@
+/data/Project/xnft/xnft/pallet-xnft/target/debug/deps/libyansi-4fb20d04af82a86a.rmeta: /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/yansi-0.5.1/src/lib.rs /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/yansi-0.5.1/src/macros.rs /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/yansi-0.5.1/src/windows.rs /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/yansi-0.5.1/src/paint.rs /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/yansi-0.5.1/src/style.rs /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/yansi-0.5.1/src/color.rs
+
+/data/Project/xnft/xnft/pallet-xnft/target/debug/deps/libyansi-4fb20d04af82a86a.rlib: /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/yansi-0.5.1/src/lib.rs /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/yansi-0.5.1/src/macros.rs /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/yansi-0.5.1/src/windows.rs /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/yansi-0.5.1/src/paint.rs /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/yansi-0.5.1/src/style.rs /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/yansi-0.5.1/src/color.rs
+
+/data/Project/xnft/xnft/pallet-xnft/target/debug/deps/yansi-4fb20d04af82a86a.d: /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/yansi-0.5.1/src/lib.rs /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/yansi-0.5.1/src/macros.rs /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/yansi-0.5.1/src/windows.rs /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/yansi-0.5.1/src/paint.rs /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/yansi-0.5.1/src/style.rs /home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/yansi-0.5.1/src/color.rs
+
+/home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/yansi-0.5.1/src/lib.rs:
+/home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/yansi-0.5.1/src/macros.rs:
+/home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/yansi-0.5.1/src/windows.rs:
+/home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/yansi-0.5.1/src/paint.rs:
+/home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/yansi-0.5.1/src/style.rs:
+/home/user/.cargo/registry/src/index.crates.io-6f17d22bba15001f/yansi-0.5.1/src/color.rs:

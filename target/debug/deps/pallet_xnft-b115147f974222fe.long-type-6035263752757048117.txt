@@ -1,0 +1,1 @@
+(ChildParachainRouter<mock::relay::Test, pallet_xcm::Pallet<mock::relay::Test>, ExponentialPrice<FeeAssetId, BaseDeliveryFee, TransactionByteFee, polkadot_runtime_parachains::dmp::Pallet<mock::relay::Test>>>,)

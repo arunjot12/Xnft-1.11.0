@@ -2743,6 +2743,7 @@ dependencies = [
  "sp-runtime",
  "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?branch=release-polkadot-v1.11.0)",
  "sp-tracing 16.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?branch=release-polkadot-v1.11.0)",
+ "sp-version",
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",

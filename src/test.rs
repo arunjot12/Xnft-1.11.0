@@ -16,8 +16,10 @@ use frame_support::{assert_noop, assert_ok, pallet_prelude::DispatchResult, trai
 use frame_support_test::pallet_prelude::OriginFor;
 use mock::relay::Hrmp;
 pub use mock::*;
+use std::sync::Arc;
+use crate::Junctions::X1;
 //use pallet_nfts::types::*;
-use polkadot_parachain::primitives::{HrmpChannelId, Sibling};
+use polkadot_parachain_primitives::primitives::{HrmpChannelId, Sibling};
 use polkadot_runtime_parachains::{hrmp as OtherModule, Origin};
 use sp_runtime::{traits::AccountIdConversion, AccountId32};
 use xcm_simulator::TestExt;
@@ -121,7 +123,7 @@ fn collection_transfer() {
 			fetch.sibling_account2.clone(),
 			fetch.collection_id,
 			fetch.dest_collection_id,
-			MultiLocation::new(1, X1(Parachain(2001))),
+			Location::new(1, X1(Parachain(2001))),
 			collection_config_with_all_settings_enabled(),
 		));
 	})
@@ -165,7 +167,7 @@ fn collection_transfer_works() {
 			fetch.sibling_account2,
 			fetch.collection_id,
 			fetch.dest_collection_id,
-			MultiLocation::new(1, X1(Parachain(2001),)),
+			Location::new(1, X1(Parachain(2001),)),
 			collection_config_with_all_settings_enabled(),
 		));
 	});
@@ -184,7 +186,7 @@ fn collection_transfer_owner_mismatch() {
 				fetch.sibling_account2,
 				fetch.collection_id,
 				fetch.dest_collection_id,
-				MultiLocation::new(1, X1(Parachain(2001))),
+				Location::new(1, X1(Parachain(2001))),
 				collection_config_with_all_settings_enabled(),
 			),
 			Error::<Test>::NoTCollectionOwner
@@ -206,7 +208,7 @@ fn collection_transfer_fails_for_nonexistent_collection() {
 				fetch.sibling_account2,
 				new_collection_id,
 				fetch.dest_collection_id,
-				MultiLocation::new(1, X1(Parachain(2001),)),
+				Location::new(1, X1(Parachain(2001),)),
 				collection_config_with_all_settings_enabled(),
 			),
 			Error::<Test>::NoSuchCollectionId
@@ -233,7 +235,7 @@ fn nft_transfer_works() {
 			fetch.dest_item_id,
 			fetch.sibling_account1.clone(),
 			owner,
-			MultiLocation::new(1, X1(Parachain(2001))),
+			Location::new(1, X1(Parachain(2001))),
 		));
 	});
 }
@@ -257,7 +259,7 @@ fn nft_transfer_fails_owner_mismatch() {
 				fetch.dest_item_id,
 				fetch.sibling_account2,
 				owner,
-				MultiLocation::new(1, X1(Parachain(2001))),
+				Location::new(1, X1(Parachain(2001))),
 			),
 			Error::<Test>::NoTNftOwner
 		);
@@ -284,7 +286,7 @@ fn nft_transfer_fails_for_nonexistent_collection_id() {
 				fetch.dest_item_id,
 				fetch.sibling_account2,
 				owner1,
-				MultiLocation::new(1, X1(Parachain(2001))),
+				Location::new(1, X1(Parachain(2001))),
 			),
 			Error::<Test>::NoSuchCollectionId
 		);
@@ -311,7 +313,7 @@ fn nft_transfer_fails_for_nonexistent_item_id() {
 				fetch.dest_item_id,
 				fetch.sibling_account2,
 				owner1,
-				MultiLocation::new(1, X1(Parachain(2001))),
+				Location::new(1, X1(Parachain(2001))),
 			),
 			Error::<Test>::NoSuchItemId
 		);
@@ -330,7 +332,7 @@ fn collection_ownership_transfer_works() {
 			RuntimeOrigin::signed(ALICE),
 			fetch.sibling_account2.clone(),
 			fetch.collection_id,
-			MultiLocation::new(1, X1(Parachain(2001),)),
+			Location::new(1, X1(Parachain(2001),)),
 		));
 	});
 }
@@ -348,7 +350,7 @@ fn collection_ownership_transfer_fails_ownermismatch() {
 				RuntimeOrigin::signed(BOB),
 				fetch.sibling_account2.clone(),
 				fetch.collection_id,
-				MultiLocation::new(1, X1(Parachain(2001))),
+				Location::new(1, X1(Parachain(2001))),
 			),
 			Error::<Test>::NoTCollectionOwner
 		);
@@ -369,7 +371,7 @@ fn collection_ownership_transfer_fails_no_collection_id() {
 				RuntimeOrigin::signed(ALICE),
 				fetch.sibling_account2.clone(),
 				collection_id1,
-				MultiLocation::new(1, X1(Parachain(2001))),
+				Location::new(1, X1(Parachain(2001))),
 			),
 			Error::<Test>::NoSuchCollectionId
 		);
@@ -410,7 +412,7 @@ fn multinft_transfer_works() {
 			multi_fetch.dest_collection_id,
 			multi_fetch.dest_item_id,
 			multi_fetch.sibling_account1.clone(),
-			MultiLocation::new(1, X1(Parachain(2001))),
+			Location::new(1, X1(Parachain(2001))),
 		));
 	});
 }
@@ -450,7 +452,7 @@ fn multinft_transfer_fails_owner_mismatch() {
 				multi_fetch.dest_collection_id,
 				multi_fetch.dest_item_id,
 				multi_fetch.sibling_account1.clone(),
-				MultiLocation::new(1, X1(Parachain(2001))),
+				Location::new(1, X1(Parachain(2001))),
 			),
 			Error::<Test>::NoTNftOwner
 		);
@@ -493,7 +495,7 @@ fn multinft_transfer_fails_for_nonexistent_collection_id() {
 				multi_fetch.dest_collection_id,
 				multi_fetch.dest_item_id,
 				multi_fetch.sibling_account1.clone(),
-				MultiLocation::new(1, X1(Parachain(2001))),
+				Location::new(1, X1(Parachain(2001))),
 			),
 			Error::<Test>::NoSuchCollectionId
 		);
@@ -536,7 +538,7 @@ fn multinft_transfer_fails_for_nonexistent_item_id() {
 				multi_fetch.dest_collection_id,
 				multi_fetch.dest_item_id,
 				multi_fetch.sibling_account1.clone(),
-				MultiLocation::new(1, X1(Parachain(2001))),
+				Location::new(1, X1(Parachain(2001))),
 			),
 			Error::<Test>::NoSuchItemId
 		);
@@ -576,14 +578,14 @@ fn transfer_nfts_ownership_works() {
 			multi_fetch.dest_collection_id,
 			multi_fetch.dest_item_id.clone(),
 			multi_fetch.sibling_account1.clone(),
-			MultiLocation::new(1, X1(Parachain(2001))),
+			Location::new(1, X1(Parachain(2001))),
 		));
 		assert_ok!(ParaChain1::transfer_nfts_ownership(
 			RuntimeOrigin::signed(ALICE),
 			BOB,
 			multi_fetch.dest_collection_id,
 			multi_fetch.dest_item_id,
-			MultiLocation::new(1, X1(Parachain(2001))),
+			Location::new(1, X1(Parachain(2001))),
 		));
 	});
 }
@@ -632,7 +634,7 @@ fn transfer_nfts_ownership_fails_limit_exceeds() {
 				multi_fetch.dest_collection_id,
 				new_dest_item_id.clone(),
 				multi_fetch.sibling_account1.clone(),
-				MultiLocation::new(1, X1(Parachain(2001))),
+				Location::new(1, X1(Parachain(2001))),
 			),
 			Error::<Test>::MaxItemCountExceeded
 		);
@@ -642,7 +644,7 @@ fn transfer_nfts_ownership_fails_limit_exceeds() {
 				BOB,
 				multi_fetch.dest_collection_id,
 				new_dest_item_id,
-				MultiLocation::new(1, X1(Parachain(2001))),
+				Location::new(1, X1(Parachain(2001))),
 			),
 			Error::<Test>::MaxItemCountExceeded
 		);
@@ -700,13 +702,13 @@ fn transfer_nft_metadata_works() {
 			multi_fetch.dest_collection_id,
 			multi_fetch.dest_item_id.clone(),
 			multi_fetch.sibling_account1.clone(),
-			MultiLocation::new(1, X1(Parachain(2001))),
+			Location::new(1, X1(Arc::new([Parachain(2001); 1]))),
 		));
 		assert_ok!(ParaChain1::transfer_nft_metadata(
 			RuntimeOrigin::signed(ALICE),
 			multi_fetch.dest_collection_id,
 			multi_fetch.dest_item_id,
-			MultiLocation::new(1, X1(Parachain(2001))),
+			Location::new(1, X1(Arc::new([Parachain(2001); 1]))),
 		));
 	});
 }
@@ -767,7 +769,7 @@ fn transfer_nft_metadata_fails_limit_exceeds() {
 				multi_fetch.dest_collection_id,
 				new_dest_item_id.clone(),
 				multi_fetch.sibling_account1.clone(),
-				MultiLocation::new(1, X1(Parachain(2001))),
+				Location::new(1, X1(Parachain(2001))),
 			),
 			Error::<Test>::MaxItemCountExceeded
 		);
@@ -776,7 +778,7 @@ fn transfer_nft_metadata_fails_limit_exceeds() {
 				RuntimeOrigin::signed(ALICE),
 				multi_fetch.dest_collection_id,
 				new_dest_item_id,
-				MultiLocation::new(1, X1(Parachain(2001))),
+				Location::new(1, X1(Parachain(2001))),
 			),
 			Error::<Test>::MaxDestItemCountExceeded
 		);
@@ -834,14 +836,14 @@ fn transfer_nft_metadata_fails_ownermismatch() {
 			multi_fetch.dest_collection_id,
 			multi_fetch.dest_item_id.clone(),
 			multi_fetch.sibling_account1.clone(),
-			MultiLocation::new(1, X1(Parachain(2001))),
+			Location::new(1, X1(Parachain(2001))),
 		));
 		assert_noop!(
 			ParaChain1::transfer_nft_metadata(
 				RuntimeOrigin::signed(BOB),
 				multi_fetch.dest_collection_id,
 				multi_fetch.dest_item_id,
-				MultiLocation::new(1, X1(Parachain(2001))),
+				Location::new(1, X1(Parachain(2001))),
 			),
 			Error::<Test>::NotTheOwner
 		);

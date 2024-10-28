@@ -9,6 +9,13 @@ use polkadot_runtime_common::{
 	paras_sudo_wrapper,
 	xcm_sender::{ChildParachainRouter, ExponentialPrice},
 };
+use primitives::CoreIndex;
+use frame_support::pallet_prelude::ValueQuery;
+use sp_std::collections::vec_deque::VecDeque;
+use frame_support::StorageValue;
+use polkadot_runtime_common::BlockLength;
+use frame_support::pallet_prelude::OptionQuery;
+use frame_support::derive_impl;
 pub use polkadot_runtime_parachains::hrmp;
 use polkadot_runtime_parachains::{
 	dmp as parachains_dmp, paras::ParaGenesisArgs, schedule_para_initialize,
@@ -25,9 +32,9 @@ use frame_support::{
 		ProcessMessage, ProcessMessageError,
 	},
 	weights::{constants::RocksDbWeight, IdentityFee, Weight, WeightMeter},
-	RuntimeDebug,
 };
-use polkadot_parachain::primitives::ValidationCode;
+use primitives::Nonce;
+use polkadot_parachain_primitives::primitives::ValidationCode;
 use sp_runtime::traits::AccountIdConversion;
 
 use crate::test::relay::currency::DOLLARS;
@@ -59,9 +66,9 @@ use sp_runtime::{
 pub type Signature = MultiSignature;
 pub type AccountPublic = <Signature as sp_runtime::traits::Verify>::Signer;
 pub type AccountId = <AccountPublic as sp_runtime::traits::IdentifyAccount>::AccountId;
-use crate::test::para::ParachainInfo;
 use frame_support::traits::ValidatorSet;
 use sp_core::H256;
+use frame_system::limits::BlockWeights;
 use xcm_builder::{EnsureXcmOrigin, NativeAsset};
 use pallet_nfts::PalletFeatures;
 use polkadot_runtime_parachains::{disputes, inclusion, paras, scheduler, session_info};
@@ -114,7 +121,7 @@ construct_runtime!(
 		NodeBlock = Block,
 		UncheckedExtrinsic = UncheckedExtrinsics,
 	{
-		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances,
 		ParasOrigin: origin,
 		MessageQueue: pallet_message_queue,
@@ -133,6 +140,7 @@ construct_runtime!(
 		DmpQueue: cumulus_pallet_dmp_queue,
 		XcmpQueue: cumulus_pallet_xcmp_queue,
 		Hrmp: hrmp,
+		MockAssigner: mock_assigner,
 	}
 
 );
@@ -149,40 +157,95 @@ impl GetChannelInfo for ChannelInfo {
 	fn get_channel_status(_id: ParaId) -> ChannelStatus {
 		ChannelStatus::Ready(10, 10)
 	}
-	fn get_channel_max(_id: ParaId) -> Option<usize> {
-		Some(usize::max_value())
+}
+
+pub mod mock_assigner {
+
+	use super::*;
+	pub use pallet::*;
+
+	#[frame_support::pallet]
+	pub mod pallet {
+		use super::*;
+
+		#[pallet::pallet]
+		#[pallet::without_storage_info]
+		pub struct Pallet<T>(_);
+
+		#[pallet::config]
+		pub trait Config: frame_system::Config + configuration::Config + paras::Config {}
+
+		#[pallet::storage]
+		pub(super) type MockAssignmentQueue<T: Config> =
+			StorageValue<_, VecDeque<Assignment>, ValueQuery>;
+
+		#[pallet::storage]
+		pub(super) type MockCoreCount<T: Config> = StorageValue<_, u32, OptionQuery>;
+	}
+
+	impl<T: Config> Pallet<T> {
+		/// Adds a claim to the `MockAssignmentQueue` this claim can later be popped by the
+		/// scheduler when filling the claim queue for tests.
+		pub fn add_test_assignment(assignment: Assignment) {
+			MockAssignmentQueue::<T>::mutate(|queue| queue.push_back(assignment));
+		}
+
+		// Allows for customized core count in scheduler tests, rather than a core count
+		// derived from on-demand config + parachain count.
+		pub fn set_core_count(count: u32) {
+			MockCoreCount::<T>::set(Some(count));
+		}
+	}
+
+	impl<T: Config> AssignmentProvider<BlockNumber> for Pallet<T> {
+		// With regards to popping_assignments, the scheduler just needs to be tested under
+		// the following two conditions:
+		// 1. An assignment is provided
+		// 2. No assignment is provided
+		// A simple assignment queue populated to fit each test fulfills these needs.
+		fn pop_assignment_for_core(_core_idx: CoreIndex) -> Option<Assignment> {
+			let mut queue: VecDeque<Assignment> = MockAssignmentQueue::<T>::get();
+			let front = queue.pop_front();
+			// Write changes to storage.
+			MockAssignmentQueue::<T>::set(queue);
+			front
+		}
+
+		// We don't care about core affinity in the test assigner
+		fn report_processed(_assignment: Assignment) {}
+
+		// The results of this are tested in assigner_on_demand tests. No need to represent it
+		// in the mock assigner.
+		fn push_back_assignment(_assignment: Assignment) {}
+
+		#[cfg(any(feature = "runtime-benchmarks", test))]
+		fn get_mock_assignment(_: CoreIndex, para_id: ParaId) -> Assignment {
+			Assignment::Bulk(para_id)
+		}
+
+		fn session_core_count() -> u32 {
+			MockCoreCount::<T>::get().unwrap_or(5)
+		}
 	}
 }
 
-impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	//type Nonce = u64;
-	type Index = Index;
-	type BlockNumber = BlockNumber;
-	type Hash = H256;
-	type Header = generic::Header<BlockNumber, BlakeTwo256>;
-	type Hashing = BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	//type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ();
-	type DbWeight = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = pallet_balances::AccountData<u64>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = ConstU32<16>;
-}
+impl mock_assigner::pallet::Config for Test {}
 
+#[derive_impl(frame_system::config_preludes::RelayChainDefaultConfig)]
+impl frame_system::Config for Test {
+	type BlockWeights = BlockWeights;
+	type BlockLength = BlockLength;
+	type Nonce = Nonce;
+	type Hash = HashT;
+	type AccountId = AccountId;
+	type Lookup = Indices;
+	type Block = Block;
+	type BlockHashCount = BlockHashCount;
+	type Version = Version;
+	type AccountData = pallet_balances::AccountData<Balance>;
+	type SS58Prefix = SS58Prefix;
+	type MaxConsumers = frame_support::traits::ConstU32<16>;
+}
 parameter_types! {
 	pub const CollectionDeposit: Balance = 100 * DOLLARS;
 	pub const ItemDeposit: Balance = 1 * DOLLARS;
@@ -243,8 +306,8 @@ impl pallet_balances::Config for Test {
 	type WeightInfo = ();
 	type FreezeIdentifier = ();
 	type MaxFreezes = ();
-	type HoldIdentifier = ();
-	type MaxHolds = ();
+	type RuntimeFreezeReason = ();
+	type RuntimeHoldReason = ();
 }
 parameter_types! {
 	pub const ParasUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
@@ -272,6 +335,8 @@ impl paras::Config for Test {
 	type UnsignedPriority = ParasUnsignedPriority;
 	type QueueFootprinter = ParaInclusion;
 	type NextSessionRotation = TestNextSessionRotation;
+	type OnNewHead = ();
+	type AssignCoretime = ();
 }
 
 thread_local! {
@@ -343,7 +408,9 @@ impl ValidatorSetWithIdentification<AccountId> for MockValidatorSet {
 	type IdentificationOf = FoolIdentificationOf;
 }
 
-impl scheduler::Config for Test {}
+impl scheduler::Config for Test {
+	type AssignmentProvider = MockAssigner;
+}
 
 impl disputes::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
@@ -422,9 +489,13 @@ impl hrmp::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = pallet_balances::Pallet<Test>;
 	type WeightInfo = hrmp::TestWeightInfo;
+	type ChannelManager =  ();
+	type DefaultChannelSizeAndCapacityWithSystem = ();
 }
 
-impl shared::Config for Test {}
+impl shared::Config for Test {
+	type DisabledValidators = ();
+}
 
 impl configuration::Config for Test {
 	type WeightInfo = configuration::TestWeightInfo;
@@ -437,10 +508,8 @@ impl cumulus_pallet_xcm::Config for Test {
 
 impl cumulus_pallet_xcmp_queue::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type ChannelInfo = ChannelInfo;
 	type VersionWrapper = ();
-	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
 	type ControllerOrigin = EnsureRoot<AccountId>;
 	type ControllerOriginConverter = ();
 	type WeightInfo = ();
@@ -449,9 +518,9 @@ impl cumulus_pallet_xcmp_queue::Config for Test {
 parameter_types! {
 	pub const RelayLocation: MultiLocation = MultiLocation::parent();
 	pub const RelayNetwork: Option<NetworkId> = None;
-	pub const AnyNetwork: Option<NetworkId> = None;
+	pub const AnyNetwork: Option<cumulus_primitives_core::NetworkId> = None;
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
-	pub UniversalLocation: InteriorMultiLocation = Parachain(ParachainInfo::parachain_id().into()).into();
+	pub const UniversalLocation: xcm::latest::InteriorLocation = xcm::latest::Junctions::Here;
 }
 
 pub type SovereignAccountOf = (ChildParachainConvertsVia<ParaId, AccountId>,);
@@ -493,8 +562,6 @@ parameter_types! {
 }
 impl cumulus_pallet_dmp_queue::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type XcmExecutor = XcmExecutor<XcmConfig>;
-	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
 }
 
 impl parachains_dmp::Config for Test {}
@@ -665,9 +732,9 @@ where
 
 #[derive(Default)]
 pub struct MockGenesisConfig {
-	pub system: frame_system::GenesisConfig,
+	pub system: frame_system::GenesisConfig<Test>,
 	pub configuration: configuration::GenesisConfig<Test>,
-	pub paras: paras::GenesisConfig,
+	pub paras: paras::GenesisConfig<Test>,
 }
 
 pub fn sudo_establish_hrmp_channel(

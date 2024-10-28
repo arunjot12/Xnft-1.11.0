@@ -1,14 +1,13 @@
 #![cfg(test)]
 
 use super::*;
-use scale_info::TypeInfo;
-use serde::{Deserialize, Serialize};
 use sp_io::TestExternalities;
-use sp_runtime::{AccountId32, BoundedVec};
+use sp_runtime::BuildStorage;
+use sp_runtime::AccountId32;
 pub mod para;
+use frame_support::traits::GenesisBuild as BuildGenesisBuild;
 pub mod relay;
 use crate as xnft;
-use frame_support::traits::GenesisBuild;
 use xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain, TestExt};
 
 pub const ALICE: AccountId32 = AccountId32::new([0u8; 32]);
@@ -63,12 +62,11 @@ pub type RelayBalances = pallet_balances::Pallet<relay::Test>;
 pub type ParaChain1 = xnft::Pallet<para::Test>;
 pub type NFT = pallet_nfts::Pallet<para::Test>;
 pub fn para_ext(para_id: u32) -> TestExternalities {
-	use para::{System, Test};
 
-	let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+	let mut t = frame_system::GenesisConfig::default().build_storage().unwrap();
 
 	let parachain_info_config = parachain_info::GenesisConfig { parachain_id: para_id.into() };
-	<parachain_info::GenesisConfig as GenesisBuild<Test, _>>::assimilate_storage(
+	<parachain_info::GenesisConfig as BuildGenesisBuild<Test, _>>::assimilate_storage(
 		&parachain_info_config,
 		&mut t,
 	)
@@ -80,12 +78,11 @@ pub fn para_ext(para_id: u32) -> TestExternalities {
 }
 
 pub fn para_teleport_ext(para_id: u32) -> TestExternalities {
-	use para::{System, Test};
 
-	let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+	let mut t = frame_system::GenesisConfig::default().build_storage().unwrap();
 
 	let parachain_info_config = parachain_info::GenesisConfig { parachain_id: para_id.into() };
-	<parachain_info::GenesisConfig as GenesisBuild<Test, _>>::assimilate_storage(
+	<parachain_info::GenesisConfig as BuildGenesisBuild<crate::test::para::Test, _>>::assimilate_storage(
 		&parachain_info_config,
 		&mut t,
 	)
@@ -98,9 +95,8 @@ pub fn para_teleport_ext(para_id: u32) -> TestExternalities {
 
 
 pub fn relay_ext() -> sp_io::TestExternalities {
-	use relay::{System, Test};
 
-	let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+	let mut t = <frame_system::GenesisConfig<Test> as BuildStorage>::build_storage(&frame_system::GenesisConfig::default()).unwrap();
 
 	pallet_balances::GenesisConfig::<Test> { balances: vec![(ALICE, INITIAL_BALANCE)] }
 		.assimilate_storage(&mut t)

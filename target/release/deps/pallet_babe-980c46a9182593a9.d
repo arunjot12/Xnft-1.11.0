@@ -1,0 +1,10 @@
+/data/Project/xnft/xnft/pallet-xnft/target/release/deps/libpallet_babe-980c46a9182593a9.rmeta: /home/user/.cargo/git/checkouts/polkadot-sdk-cff69157b985ed76/8c8edac/substrate/frame/babe/src/lib.rs /home/user/.cargo/git/checkouts/polkadot-sdk-cff69157b985ed76/8c8edac/substrate/frame/babe/src/default_weights.rs /home/user/.cargo/git/checkouts/polkadot-sdk-cff69157b985ed76/8c8edac/substrate/frame/babe/src/equivocation.rs /home/user/.cargo/git/checkouts/polkadot-sdk-cff69157b985ed76/8c8edac/substrate/frame/babe/src/randomness.rs
+
+/data/Project/xnft/xnft/pallet-xnft/target/release/deps/libpallet_babe-980c46a9182593a9.rlib: /home/user/.cargo/git/checkouts/polkadot-sdk-cff69157b985ed76/8c8edac/substrate/frame/babe/src/lib.rs /home/user/.cargo/git/checkouts/polkadot-sdk-cff69157b985ed76/8c8edac/substrate/frame/babe/src/default_weights.rs /home/user/.cargo/git/checkouts/polkadot-sdk-cff69157b985ed76/8c8edac/substrate/frame/babe/src/equivocation.rs /home/user/.cargo/git/checkouts/polkadot-sdk-cff69157b985ed76/8c8edac/substrate/frame/babe/src/randomness.rs
+
+/data/Project/xnft/xnft/pallet-xnft/target/release/deps/pallet_babe-980c46a9182593a9.d: /home/user/.cargo/git/checkouts/polkadot-sdk-cff69157b985ed76/8c8edac/substrate/frame/babe/src/lib.rs /home/user/.cargo/git/checkouts/polkadot-sdk-cff69157b985ed76/8c8edac/substrate/frame/babe/src/default_weights.rs /home/user/.cargo/git/checkouts/polkadot-sdk-cff69157b985ed76/8c8edac/substrate/frame/babe/src/equivocation.rs /home/user/.cargo/git/checkouts/polkadot-sdk-cff69157b985ed76/8c8edac/substrate/frame/babe/src/randomness.rs
+
+/home/user/.cargo/git/checkouts/polkadot-sdk-cff69157b985ed76/8c8edac/substrate/frame/babe/src/lib.rs:
+/home/user/.cargo/git/checkouts/polkadot-sdk-cff69157b985ed76/8c8edac/substrate/frame/babe/src/default_weights.rs:
+/home/user/.cargo/git/checkouts/polkadot-sdk-cff69157b985ed76/8c8edac/substrate/frame/babe/src/equivocation.rs:
+/home/user/.cargo/git/checkouts/polkadot-sdk-cff69157b985ed76/8c8edac/substrate/frame/babe/src/randomness.rs:
