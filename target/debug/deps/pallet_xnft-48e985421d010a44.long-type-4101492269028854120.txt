@@ -1,1 +1,0 @@
-TransformOrigin<pallet_message_queue::Pallet<mock::relay::Test>, cumulus_primitives_core::AggregateMessageOrigin, ParaId, ParaIdToSibling>

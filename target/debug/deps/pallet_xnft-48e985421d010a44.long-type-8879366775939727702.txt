@@ -1,1 +1,0 @@
-SignedToAccountId32<mock::relay::RuntimeOrigin, sp_runtime::AccountId32, mock::relay::AnyNetwork>

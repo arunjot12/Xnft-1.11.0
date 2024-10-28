@@ -1,1 +1,0 @@
-SignedToAccountId32<mock::para::RuntimeOrigin, sp_runtime::AccountId32, mock::para::AnyNetwork>
