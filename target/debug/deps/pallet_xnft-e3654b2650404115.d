@@ -1,9 +1,0 @@
-/data/Project/xnft/xnft/pallet-xnft/target/debug/deps/pallet_xnft-e3654b2650404115: src/lib.rs src/mock/mod.rs src/mock/para.rs src/mock/relay.rs src/test.rs
-
-/data/Project/xnft/xnft/pallet-xnft/target/debug/deps/pallet_xnft-e3654b2650404115.d: src/lib.rs src/mock/mod.rs src/mock/para.rs src/mock/relay.rs src/test.rs
-
-src/lib.rs:
-src/mock/mod.rs:
-src/mock/para.rs:
-src/mock/relay.rs:
-src/test.rs:
