@@ -1,14 +1,11 @@
 #![cfg(test)]
 use crate::{self as pallet_xnft};
 use frame_support::derive_impl;
-use primitives::Hash;
 use crate::test::relay::MessageQueue;
-use primitives::Nonce;
 use std::sync::Arc;
 use sp_runtime::BuildStorage;
 use frame_support::traits::TransformOrigin;
 use parachains_common::message_queue::ParaIdToSibling;
-use sp_runtime::create_runtime_str;
 use cumulus_primitives_core::AggregateMessageOrigin;
 use polkadot_runtime_common::NORMAL_DISPATCH_RATIO;
 use frame_system::limits::BlockLength;
@@ -110,7 +107,6 @@ construct_runtime!(
 );
 
 parameter_types! {
-	pub const Version: RuntimeVersion = VERSION;
 	pub const SS58Prefix: u8 = 42;
 	pub const RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
 	pub RuntimeBlockLength: BlockLength =

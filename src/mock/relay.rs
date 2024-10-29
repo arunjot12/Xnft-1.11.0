@@ -16,7 +16,6 @@ use polkadot_runtime_common::{
 	xcm_sender::{ChildParachainRouter, ExponentialPrice},
 };
 use polkadot_runtime_common::BlockHashCount;
-use crate::test::para::Version;
 use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 use primitives::CoreIndex;
 use frame_support::pallet_prelude::ValueQuery;
@@ -488,7 +487,7 @@ impl hrmp::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = pallet_balances::Pallet<Test>;
 	type WeightInfo = hrmp::TestWeightInfo;
-	type ChannelManager =  ();
+	type ChannelManager = frame_system::EnsureRoot<AccountId>;
 	type DefaultChannelSizeAndCapacityWithSystem = ();
 }
 
@@ -747,16 +746,6 @@ pub struct MockGenesisConfig {
 	pub paras: paras::GenesisConfig<Test>,
 }
 
-pub fn sudo_establish_hrmp_channel(
-	sender: ParaId,
-	recipient: ParaId,
-	max_capacity: u32,
-	max_message_size: u32,
-) -> DispatchResult {
-	Hrmp::init_open_channel(sender, recipient, max_capacity, max_message_size);
-	Hrmp::accept_open_channel(recipient, sender);
-	Ok(())
-}
 
 pub(crate) fn register_parachain_with_balance(id: ParaId, balance: Balance) {
 	let validation_code: ValidationCode = vec![1].into();
