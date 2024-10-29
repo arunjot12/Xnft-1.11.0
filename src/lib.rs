@@ -25,10 +25,6 @@
    
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
-#[cfg(test)]
-pub mod mock;
-#[cfg(test)]
-pub mod test;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
