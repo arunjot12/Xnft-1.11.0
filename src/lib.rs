@@ -29,6 +29,11 @@
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
+#[cfg(test)]
+pub mod mock;
+#[cfg(test)]
+pub mod test;
+
 use cumulus_pallet_xcm::Origin as CumulusOrigin;
 pub use pallet::*;
 pub use sp_runtime::traits::StaticLookup;
