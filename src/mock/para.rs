@@ -1,49 +1,48 @@
 #![cfg(test)]
 use crate::{self as pallet_xnft};
 use frame_support::derive_impl;
-use crate::test::*;
 use primitives::Hash;
+use crate::test::relay::MessageQueue;
 use primitives::Nonce;
+use std::sync::Arc;
+use sp_runtime::BuildStorage;
+use frame_support::traits::TransformOrigin;
+use parachains_common::message_queue::ParaIdToSibling;
 use sp_runtime::create_runtime_str;
+use cumulus_primitives_core::AggregateMessageOrigin;
 use polkadot_runtime_common::NORMAL_DISPATCH_RATIO;
 use frame_system::limits::BlockLength;
+use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 use frame_system::limits::BlockWeights;
 use frame_support::weights::constants::BlockExecutionWeight;
 use frame_support::weights::constants::ExtrinsicBaseWeight;
 use frame_support::pallet_prelude::DispatchClass;
 use sp_version::RuntimeVersion;
+use xcm_builder::FrameTransactionalProcessor;
+use frame_support::traits::Nothing;
 use polkadot_runtime_common::MAXIMUM_BLOCK_WEIGHT;
 use polkadot_runtime_common::AVERAGE_ON_INITIALIZE_RATIO;
 use polkadot_runtime_common::BlockHashCount;
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use frame_support::{
 	construct_runtime, match_types,
-	pallet_prelude::{DispatchResult, Get},
 	parameter_types,
 	traits::{
-		AsEnsureOriginWithArg, ConstU128, ConstU16, ConstU32, ConstU64, Currency, Everything,
-		Nothing,
+		AsEnsureOriginWithArg, ConstU32, ConstU64, Everything,
 	},
 	weights::constants::{RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND},
 };
-use frame_system::{EnsureRoot, EnsureRootWithSuccess, EnsureSigned};
-
-use sp_runtime::{generic, BoundedVec};
+use frame_system::{EnsureRoot};
 pub use sp_runtime::{
 	testing::Header,
 	traits::{AccountIdLookup, BlakeTwo256, IdentityLookup},
 	DispatchError, MultiSignature,
 };
-use std::sync::Arc;
 use crate::test::para::currency::DOLLARS;
-
-use sp_core::{H256, U256};
-
 pub type CollectionId = u64;
 type Origin = <Test as frame_system::Config>::RuntimeOrigin;
-use crate::Config;
-type Balance = u128;
-use cumulus_primitives_core::{ChannelStatus, GetChannelInfo, ParaId};
+type Balance = u64;
+use cumulus_primitives_core::ParaId;
 use pallet_nfts::PalletFeatures;
 use pallet_xcm::XcmPassthrough;
 use polkadot_parachain_primitives::primitives::Sibling;
@@ -57,8 +56,7 @@ use xcm_builder::{
 use xcm_executor::XcmExecutor;
 
 pub mod currency {
-	use node_primitives::Balance;
-
+	pub type Balance = u64;
 	pub const MILLICENTS: Balance = 1_000_000_000;
 	pub const CENTS: Balance = 1_000 * MILLICENTS; // assume this is worth about a cent.
 	pub const DOLLARS: Balance = 100 * CENTS;
@@ -111,21 +109,10 @@ construct_runtime!(
 	}
 );
 
-#[sp_version::runtime_version]
-pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("polkadot-test-runtime"),
-	impl_name: create_runtime_str!("parity-polkadot-test-runtime"),
-	authoring_version: 2,
-	spec_version: 1056,
-	impl_version: 0,
-	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 1,
-	state_version: 1,
-};
-
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 	pub const SS58Prefix: u8 = 42;
+	pub const RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
 	pub RuntimeBlockLength: BlockLength =
 		BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
 	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
@@ -149,55 +136,25 @@ parameter_types! {
 }
 
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Test {
-	/// The identifier used to distinguish between accounts.
 	type AccountId = AccountId;
-	/// The aggregated dispatch type that is available for extrinsics.
-	type RuntimeCall = RuntimeCall;
-	/// The lookup mechanism to get account ID from whatever is passed in dispatchers.
-	type Lookup = AccountIdLookup<AccountId, ()>;
-	/// The index type for storing how many extrinsics an account has signed.
-	type Nonce = Nonce;
-	/// The type for hashing blocks and tries.
-	type Hash = Hash;
-	/// The hashing algorithm used.
-	type Hashing = BlakeTwo256;
-	/// The block type.
+	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
-	/// The ubiquitous event type.
-	type RuntimeEvent = RuntimeEvent;
-	/// The ubiquitous origin type.
-	type RuntimeOrigin = RuntimeOrigin;
-	/// Maximum number of block number to block hash mappings to keep (oldest pruned first).
-	type BlockHashCount = BlockHashCount;
-	/// Runtime version.
-	type Version = Version;
-	/// Converts a module to an index of this module in the runtime.
-	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type DbWeight = RocksDbWeight;
-	type BaseCallFilter = frame_support::traits::Everything;
-	type SystemWeightInfo = ();
-	type BlockWeights = RuntimeBlockWeights;
-	type BlockLength = RuntimeBlockLength;
-	type SS58Prefix = SS58Prefix;
-	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 impl cumulus_pallet_parachain_system::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type OnSystemEvent = ();
-	type SelfParaId = parachain_info::Pallet<Test>;
+	type SelfParaId = ();
 	type OutboundXcmpMessageSource = XcmpQueue;
 	type ReservedDmpWeight = ReservedDmpWeight;
 	type XcmpMessageHandler = XcmpQueue;
 	type ReservedXcmpWeight = ReservedXcmpWeight;
 	type CheckAssociatedRelayNumber = RelayNumberStrictlyIncreases;
-	type DmpQueue = ();
+	type DmpQueue = frame_support::traits::EnqueueWithOrigin<MessageQueue, RelayOrigin>;
 	type WeightInfo = ();
 }
 
@@ -281,7 +238,7 @@ parameter_types! {
 parameter_types! {
 	pub const RelayLocation: MultiLocation = MultiLocation::parent();
 	pub const RelayNetwork: Option<NetworkId> = None;
-	pub const AnyNetwork: Option<NetworkId> = None;
+	pub const AnyNetwork: Option<cumulus_primitives_core::NetworkId> = None;
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub const UniversalLocation: xcm::latest::InteriorLocation = xcm::latest::Junctions::Here;
 }
@@ -317,10 +274,16 @@ parameter_types! {
 
 parameter_types! {
 	pub const Roc: MultiAssetFilter = Wild(AllOf { fun: WildFungible, id: Concrete(RelayLocation::get()) });
-	pub const Para: MultiLocation = Parachain(2000).into_location();
-	pub const Para2: MultiLocation = Parachain(2001).into_location();
+	pub const Para: cumulus_primitives_core::Location = cumulus_primitives_core::Location {
+		parents: 1,
+		interior: cumulus_primitives_core::Junctions::X1(Arc::new([cumulus_primitives_core::Junction::Parachain(2000); 1])),
+	};
+	pub const Para2: cumulus_primitives_core::Location = cumulus_primitives_core::Location {
+		parents: 1,
+		interior: cumulus_primitives_core::Junctions::X1(Arc::new([cumulus_primitives_core::Junction::Parachain(2001); 1])),
+	};
 	pub const OurchainPara: (MultiAssetFilter, cumulus_primitives_core::Location) = (Roc::get(), Para::get());
-	pub const OurchainPara2: (MultiAssetFilter, umulus_primitives_core::Location) = (Roc::get(), Para2::get());
+	pub const OurchainPara2: (MultiAssetFilter, cumulus_primitives_core::Location) = (Roc::get(), Para2::get());
 
 }
 
@@ -333,7 +296,7 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetTransactor = ();
 	type OriginConverter = ();
 	type IsReserve = NativeAsset;
-	type IsTeleporter = TrustedTeleporters;
+	type IsTeleporter = NativeAsset;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
@@ -351,27 +314,29 @@ impl xcm_executor::Config for XcmConfig {
 	type UniversalAliases = Everything;
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
-}
-
-pub struct ChannelInfo;
-impl GetChannelInfo for ChannelInfo {
-	fn get_channel_status(_id: ParaId) -> ChannelStatus {
-		ChannelStatus::Ready(10, 10)
-	}
+	type Aliasers = Nothing;
+	type TransactionalProcessor = FrameTransactionalProcessor;
+	type HrmpNewChannelOpenRequestHandler = ();
+	type HrmpChannelAcceptedHandler = ();
+	type HrmpChannelClosingHandler = ();
 }
 
 impl cumulus_pallet_xcmp_queue::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type ChannelInfo = ChannelInfo;
+	type ChannelInfo = ParachainSystem;
 	type VersionWrapper = ();
 	type ControllerOrigin = EnsureRoot<AccountId>;
 	type ControllerOriginConverter = ();
 	type WeightInfo = ();
-	type PriceForSiblingDelivery = ();
+	type PriceForSiblingDelivery = NoPriceForMessageDelivery<ParaId>;
+	type MaxInboundSuspended = sp_core::ConstU32<1_000>;
+	type XcmpQueue = TransformOrigin<MessageQueue, cumulus_primitives_core::AggregateMessageOrigin, ParaId, ParaIdToSibling>;
 }
 
 impl cumulus_pallet_dmp_queue::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type DmpSink = crate::test::relay::RecordingDmpSink;
+	type WeightInfo = ();
 }
 
 impl cumulus_pallet_xcm::Config for Test {
@@ -441,7 +406,7 @@ impl pallet_xnft::Config for Test {
 	type Helper = ();
 }
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	frame_system::GenesisConfig::default().build_storage().unwrap().into()
+	<frame_system::GenesisConfig<Test> as BuildStorage>::build_storage(&frame_system::GenesisConfig::default()).unwrap().into()
 }
 pub struct ExtBuilder;
 

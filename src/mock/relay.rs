@@ -3,51 +3,58 @@ use crate::{
 	self as pallet_xnft,
 	test::relay::currency::{CENTS, MILLICENTS},
 };
+use frame_support::traits::HandleMessage;
 use cumulus_primitives_core::relay_chain::CandidateHash;
+use sp_runtime::BuildStorage;
+use sp_runtime::traits::IdentityLookup;
+use primitives::AccountIndex;
+use frame_support::traits::QueueFootprint;
 use frame_support::{assert_ok, traits::AsEnsureOriginWithArg};
+use sp_core::bounded_vec::BoundedSlice;
 use polkadot_runtime_common::{
 	paras_sudo_wrapper,
 	xcm_sender::{ChildParachainRouter, ExponentialPrice},
 };
+use polkadot_runtime_common::BlockHashCount;
+use crate::test::para::Version;
+use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 use primitives::CoreIndex;
 use frame_support::pallet_prelude::ValueQuery;
 use sp_std::collections::vec_deque::VecDeque;
-use frame_support::StorageValue;
+use crate::test::para::SS58Prefix;
 use polkadot_runtime_common::BlockLength;
 use frame_support::pallet_prelude::OptionQuery;
 use frame_support::derive_impl;
 pub use polkadot_runtime_parachains::hrmp;
 use polkadot_runtime_parachains::{
-	dmp as parachains_dmp, paras::ParaGenesisArgs, schedule_para_initialize,
+	dmp as parachains_dmp, schedule_para_initialize,
 };
-
-use crate::test::*;
 use frame_support::{
 	construct_runtime,
-	dispatch::DispatchClass,
-	pallet_prelude::{DispatchResult, Get},
+	pallet_prelude::DispatchResult,
 	parameter_types,
 	traits::{
-		ConstU128, ConstU16, ConstU32, ConstU64, Currency, Everything, GenesisBuild, Nothing,
+		ConstU32, ConstU64, Currency, Everything, Nothing,
 		ProcessMessage, ProcessMessageError,
 	},
-	weights::{constants::RocksDbWeight, IdentityFee, Weight, WeightMeter},
+	weights::{Weight, WeightMeter},
 };
 use primitives::Nonce;
+use crate::test::para::ParachainSystem;
 use polkadot_parachain_primitives::primitives::ValidationCode;
 use sp_runtime::traits::AccountIdConversion;
-
+use primitives::Hash as HashT;
 use crate::test::relay::currency::DOLLARS;
 use cumulus_primitives_core::{
 	relay_chain::{AuthorityDiscoveryId, SessionIndex, ValidatorIndex},
-	ChannelStatus, GetChannelInfo, ParaId,
+	ParaId,
 };
 use frame_support::traits::ValidatorSetWithIdentification;
-use frame_system::{EnsureRoot, EnsureRootWithSuccess, EnsureSigned};
+use frame_system::EnsureRoot;
 use sp_runtime::{transaction_validity::TransactionPriority, Permill};
 use std::{cell::RefCell, collections::HashMap};
 pub mod currency {
-	use node_primitives::Balance;
+	pub type Balance = u64;
 
 	pub const MILLICENTS: Balance = 1_000_000_000;
 	pub const CENTS: Balance = 1_000 * MILLICENTS; // assume this is worth about a cent.
@@ -57,17 +64,13 @@ pub mod currency {
 		items as Balance * 15 * CENTS + (bytes as Balance) * 6 * CENTS
 	}
 }
-use sp_runtime::{
-	generic,
-	testing::Header,
-	traits::{AccountIdLookup, BlakeTwo256, IdentityLookup},
-	BoundedVec, DispatchError, MultiSignature,
-};
+use sp_runtime::
+	MultiSignature
+;
 pub type Signature = MultiSignature;
 pub type AccountPublic = <Signature as sp_runtime::traits::Verify>::Signer;
 pub type AccountId = <AccountPublic as sp_runtime::traits::IdentifyAccount>::AccountId;
 use frame_support::traits::ValidatorSet;
-use sp_core::H256;
 use frame_system::limits::BlockWeights;
 use xcm_builder::{EnsureXcmOrigin, NativeAsset};
 use pallet_nfts::PalletFeatures;
@@ -82,17 +85,14 @@ pub type BlockNumber = u32;
 pub type Index = u32;
 use xcm::v3::prelude::*;
 use xcm_builder::{
-	AccountId32Aliases, AllowTopLevelPaidExecutionFrom, ChildParachainAsNative,
-	ChildParachainConvertsVia, CurrencyAdapter as XcmCurrencyAdapter, FixedWeightBounds,
-	IsConcrete, SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation,
-	TakeWeightCredit, UsingComponents,
+	AllowTopLevelPaidExecutionFrom, ChildParachainConvertsVia, FixedWeightBounds,
+	SignedToAccountId32, TakeWeightCredit,
 };
 use xcm_executor::XcmExecutor;
 
 type Origin = <Test as frame_system::Config>::RuntimeOrigin;
-use crate::Config;
 
-type Balance = u128;
+type Balance = u64;
 
 pub fn root_user() -> Origin {
 	RuntimeOrigin::root()
@@ -141,6 +141,7 @@ construct_runtime!(
 		XcmpQueue: cumulus_pallet_xcmp_queue,
 		Hrmp: hrmp,
 		MockAssigner: mock_assigner,
+		Indices: pallet_indices,
 	}
 
 );
@@ -152,21 +153,18 @@ where
 	type OverarchingCall = RuntimeCall;
 }
 impl paras_sudo_wrapper::Config for Test {}
-pub struct ChannelInfo;
-impl GetChannelInfo for ChannelInfo {
-	fn get_channel_status(_id: ParaId) -> ChannelStatus {
-		ChannelStatus::Ready(10, 10)
-	}
-}
-
 pub mod mock_assigner {
 
 	use super::*;
+	use crate::test::relay::scheduler::common::AssignmentProvider;
 	pub use pallet::*;
+	use crate::test::relay::scheduler::common::Assignment;
 
 	#[frame_support::pallet]
 	pub mod pallet {
-		use super::*;
+		use frame_support::pallet_prelude::StorageValue;
+
+use super::*;
 
 		#[pallet::pallet]
 		#[pallet::without_storage_info]
@@ -177,7 +175,7 @@ pub mod mock_assigner {
 
 		#[pallet::storage]
 		pub(super) type MockAssignmentQueue<T: Config> =
-			StorageValue<_, VecDeque<Assignment>, ValueQuery>;
+			StorageValue<_,VecDeque<Assignment>, ValueQuery>;
 
 		#[pallet::storage]
 		pub(super) type MockCoreCount<T: Config> = StorageValue<_, u32, OptionQuery>;
@@ -218,11 +216,6 @@ pub mod mock_assigner {
 		// in the mock assigner.
 		fn push_back_assignment(_assignment: Assignment) {}
 
-		#[cfg(any(feature = "runtime-benchmarks", test))]
-		fn get_mock_assignment(_: CoreIndex, para_id: ParaId) -> Assignment {
-			Assignment::Bulk(para_id)
-		}
-
 		fn session_core_count() -> u32 {
 			MockCoreCount::<T>::get().unwrap_or(5)
 		}
@@ -231,21 +224,27 @@ pub mod mock_assigner {
 
 impl mock_assigner::pallet::Config for Test {}
 
-#[derive_impl(frame_system::config_preludes::RelayChainDefaultConfig)]
-impl frame_system::Config for Test {
-	type BlockWeights = BlockWeights;
-	type BlockLength = BlockLength;
-	type Nonce = Nonce;
-	type Hash = HashT;
-	type AccountId = AccountId;
-	type Lookup = Indices;
-	type Block = Block;
-	type BlockHashCount = BlockHashCount;
-	type Version = Version;
-	type AccountData = pallet_balances::AccountData<Balance>;
-	type SS58Prefix = SS58Prefix;
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
+parameter_types! {
+	pub storage IndexDeposit: Balance = 1 * DOLLARS;
 }
+
+impl pallet_indices::Config for Test {
+	type AccountIndex = AccountIndex;
+	type Currency = Balances;
+	type Deposit = IndexDeposit;
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+}
+
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
+impl frame_system::Config for Test {
+	type AccountId = AccountId;
+	type Lookup = IdentityLookup<Self::AccountId>;
+	type Block = Block;
+	type AccountData = pallet_balances::AccountData<Balance>;
+}
+
 parameter_types! {
 	pub const CollectionDeposit: Balance = 100 * DOLLARS;
 	pub const ItemDeposit: Balance = 1 * DOLLARS;
@@ -508,15 +507,16 @@ impl cumulus_pallet_xcm::Config for Test {
 
 impl cumulus_pallet_xcmp_queue::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type ChannelInfo = ChannelInfo;
+	type ChannelInfo = ParachainSystem;
 	type VersionWrapper = ();
 	type ControllerOrigin = EnsureRoot<AccountId>;
 	type ControllerOriginConverter = ();
 	type WeightInfo = ();
-	type PriceForSiblingDelivery = ();
+	type PriceForSiblingDelivery = NoPriceForMessageDelivery<ParaId>;
+	type MaxInboundSuspended = sp_core::ConstU32<1_000>;
 }
 parameter_types! {
-	pub const RelayLocation: MultiLocation = MultiLocation::parent();
+	pub const RelayLocation: cumulus_primitives_core::Location = cumulus_primitives_core::Location::parent();
 	pub const RelayNetwork: Option<NetworkId> = None;
 	pub const AnyNetwork: Option<cumulus_primitives_core::NetworkId> = None;
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
@@ -534,7 +534,7 @@ parameter_types! {
 	/// The asset ID for the asset that we use to pay for message delivery fees.
 	pub FeeAssetId: AssetId = Concrete(RelayLocation::get());
 	/// The base fee for the message delivery fees.
-	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
+	pub const BaseDeliveryFee: u64 = CENTS.saturating_mul(3);
 }
 
 parameter_types! {
@@ -559,9 +559,36 @@ parameter_types! {
 	pub const UnitWeightCost: Weight = Weight::from_parts(10, 10);
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
+	pub static RecordedMessages: Vec<Vec<u8>> = vec![];
 }
+
+
+/// Can be used as [`Config::DmpSink`] to record all messages that came in.
+pub struct RecordingDmpSink;
+impl HandleMessage for RecordingDmpSink {
+	type MaxMessageLen = ConstU32<16>;
+
+	fn handle_message(msg: BoundedSlice<u8, Self::MaxMessageLen>) {
+		RecordedMessages::mutate(|n| n.push(msg.to_vec()));
+	}
+
+	fn handle_messages<'a>(_: impl Iterator<Item = BoundedSlice<'a, u8, Self::MaxMessageLen>>) {
+		unimplemented!()
+	}
+
+	fn sweep_queue() {
+		unimplemented!()
+	}
+
+	fn footprint() -> QueueFootprint {
+		unimplemented!()
+	}
+}
+
 impl cumulus_pallet_dmp_queue::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type DmpSink = RecordingDmpSink;
+	type WeightInfo = ();
 }
 
 impl parachains_dmp::Config for Test {}
@@ -666,8 +693,9 @@ impl pallet_message_queue::Config for Test {
 	type ServiceWeight = MessageQueueServiceWeight;
 	type MessageProcessor = MessageProcessor;
 	type QueueChangeHandler = ();
-	//type QueuePausedQuery = ();
+	type QueuePausedQuery = ();
 	type WeightInfo = ();
+	type IdleMaxServiceWeight = ();
 }
 
 impl pallet_xnft::Config for Test {
@@ -681,24 +709,6 @@ impl pallet_xnft::Config for Test {
 	type Helper = ();
 }
 
-pub fn new_test_ext(state: MockGenesisConfig) -> sp_io::TestExternalities {
-	use sp_keystore::{testing::MemoryKeystore, KeystoreExt, KeystorePtr};
-	use sp_std::sync::Arc;
-
-	sp_tracing::try_init_simple();
-
-	BACKING_REWARDS.with(|r| r.borrow_mut().clear());
-	AVAILABILITY_REWARDS.with(|r| r.borrow_mut().clear());
-
-	let mut t = state.system.build_storage::<Test>().unwrap();
-	state.configuration.assimilate_storage(&mut t).unwrap();
-	GenesisBuild::<Test>::assimilate_storage(&state.paras, &mut t).unwrap();
-
-	let mut ext: sp_io::TestExternalities = t.into();
-	ext.register_extension(KeystoreExt(Arc::new(MemoryKeystore::new()) as KeystorePtr));
-
-	ext
-}
 pub struct ExtBuilder;
 
 impl Default for ExtBuilder {
@@ -709,7 +719,7 @@ impl Default for ExtBuilder {
 
 impl ExtBuilder {
 	pub fn build(self) -> sp_io::TestExternalities {
-		let storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+		let storage = <frame_system::GenesisConfig<Test> as BuildStorage>::build_storage(&frame_system::GenesisConfig::default()).unwrap();
 		storage.into()
 	}
 }

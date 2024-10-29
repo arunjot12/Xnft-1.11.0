@@ -5,7 +5,6 @@ use sp_io::TestExternalities;
 use sp_runtime::BuildStorage;
 use sp_runtime::AccountId32;
 pub mod para;
-use frame_support::traits::GenesisBuild as BuildGenesisBuild;
 pub mod relay;
 use crate as xnft;
 use xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain, TestExt};
@@ -63,46 +62,26 @@ pub type ParaChain1 = xnft::Pallet<para::Test>;
 pub type NFT = pallet_nfts::Pallet<para::Test>;
 pub fn para_ext(para_id: u32) -> TestExternalities {
 
-	let mut t = frame_system::GenesisConfig::default().build_storage().unwrap();
-
-	let parachain_info_config = parachain_info::GenesisConfig { parachain_id: para_id.into() };
-	<parachain_info::GenesisConfig as BuildGenesisBuild<Test, _>>::assimilate_storage(
-		&parachain_info_config,
-		&mut t,
-	)
-	.unwrap();
+	let mut t = frame_system::GenesisConfig::<crate::test::para::Test>::default()
+		.build_storage()
+		.unwrap();
 
 	let mut ext = TestExternalities::new(t);
-	ext.execute_with(|| System::set_block_number(1));
+	ext.execute_with(|| {
+		crate::test::para::System::set_block_number(1);
+	});
 	ext
 }
-
-pub fn para_teleport_ext(para_id: u32) -> TestExternalities {
-
-	let mut t = frame_system::GenesisConfig::default().build_storage().unwrap();
-
-	let parachain_info_config = parachain_info::GenesisConfig { parachain_id: para_id.into() };
-	<parachain_info::GenesisConfig as BuildGenesisBuild<crate::test::para::Test, _>>::assimilate_storage(
-		&parachain_info_config,
-		&mut t,
-	)
-	.unwrap();
-
-	let mut ext = TestExternalities::new(t);
-	ext.execute_with(|| System::set_block_number(1));
-	ext
-}
-
 
 pub fn relay_ext() -> sp_io::TestExternalities {
 
-	let mut t = <frame_system::GenesisConfig<Test> as BuildStorage>::build_storage(&frame_system::GenesisConfig::default()).unwrap();
+	let mut t = <frame_system::GenesisConfig<crate::test::relay::Test> as BuildStorage>::build_storage(&frame_system::GenesisConfig::default()).unwrap();
 
-	pallet_balances::GenesisConfig::<Test> { balances: vec![(ALICE, INITIAL_BALANCE)] }
+	pallet_balances::GenesisConfig::<crate::test::relay::Test> { balances: vec![(ALICE, INITIAL_BALANCE)] }
 		.assimilate_storage(&mut t)
 		.unwrap();
 
 	let mut ext = sp_io::TestExternalities::new(t);
-	ext.execute_with(|| System::set_block_number(1));
+	ext.execute_with(|| crate::test::relay::System::set_block_number(1));
 	ext
 }
