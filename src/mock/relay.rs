@@ -6,6 +6,8 @@ use crate::{
 use frame_support::traits::HandleMessage;
 use cumulus_primitives_core::relay_chain::CandidateHash;
 use sp_runtime::BuildStorage;
+use frame_support::traits::TransformOrigin;
+use parachains_common::message_queue::ParaIdToSibling;
 use sp_runtime::traits::IdentityLookup;
 use primitives::AccountIndex;
 use frame_support::traits::QueueFootprint;
@@ -15,13 +17,10 @@ use polkadot_runtime_common::{
 	paras_sudo_wrapper,
 	xcm_sender::{ChildParachainRouter, ExponentialPrice},
 };
-use polkadot_runtime_common::BlockHashCount;
 use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 use primitives::CoreIndex;
 use frame_support::pallet_prelude::ValueQuery;
 use sp_std::collections::vec_deque::VecDeque;
-use crate::test::para::SS58Prefix;
-use polkadot_runtime_common::BlockLength;
 use frame_support::pallet_prelude::OptionQuery;
 use frame_support::derive_impl;
 pub use polkadot_runtime_parachains::hrmp;
@@ -30,7 +29,6 @@ use polkadot_runtime_parachains::{
 };
 use frame_support::{
 	construct_runtime,
-	pallet_prelude::DispatchResult,
 	parameter_types,
 	traits::{
 		ConstU32, ConstU64, Currency, Everything, Nothing,
@@ -38,11 +36,9 @@ use frame_support::{
 	},
 	weights::{Weight, WeightMeter},
 };
-use primitives::Nonce;
 use crate::test::para::ParachainSystem;
 use polkadot_parachain_primitives::primitives::ValidationCode;
 use sp_runtime::traits::AccountIdConversion;
-use primitives::Hash as HashT;
 use crate::test::relay::currency::DOLLARS;
 use cumulus_primitives_core::{
 	relay_chain::{AuthorityDiscoveryId, SessionIndex, ValidatorIndex},
@@ -70,7 +66,6 @@ pub type Signature = MultiSignature;
 pub type AccountPublic = <Signature as sp_runtime::traits::Verify>::Signer;
 pub type AccountId = <AccountPublic as sp_runtime::traits::IdentifyAccount>::AccountId;
 use frame_support::traits::ValidatorSet;
-use frame_system::limits::BlockWeights;
 use xcm_builder::{EnsureXcmOrigin, NativeAsset};
 use pallet_nfts::PalletFeatures;
 use polkadot_runtime_parachains::{disputes, inclusion, paras, scheduler, session_info};
@@ -115,10 +110,8 @@ type UncheckedExtrinsics = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 construct_runtime!(
-	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsics,
+	pub enum Test
+	
 	{
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances,
@@ -332,7 +325,7 @@ impl paras::Config for Test {
 	type WeightInfo = polkadot_runtime_parachains::paras::TestWeightInfo;
 	type UnsignedPriority = ParasUnsignedPriority;
 	type QueueFootprinter = ParaInclusion;
-	type NextSessionRotation = TestNextSessionRotation;
+	type NextSessionRotation = ();
 	type OnNewHead = ();
 	type AssignCoretime = ();
 }
@@ -511,6 +504,7 @@ impl cumulus_pallet_xcmp_queue::Config for Test {
 	type ControllerOrigin = EnsureRoot<AccountId>;
 	type ControllerOriginConverter = ();
 	type WeightInfo = ();
+	type XcmpQueue = TransformOrigin<MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSibling>;
 	type PriceForSiblingDelivery = NoPriceForMessageDelivery<ParaId>;
 	type MaxInboundSuspended = sp_core::ConstU32<1_000>;
 }
@@ -531,7 +525,7 @@ parameter_types! {
 parameter_types! {
 	/// The amount of weight an XCM operation takes. This is a safe overestimate.
 	/// The asset ID for the asset that we use to pay for message delivery fees.
-	pub FeeAssetId: AssetId = Concrete(RelayLocation::get());
+	pub FeeAssetId: cumulus_primitives_core::AssetId = Concrete(RelayLocation::get());
 	/// The base fee for the message delivery fees.
 	pub const BaseDeliveryFee: u64 = CENTS.saturating_mul(3);
 }
@@ -617,6 +611,11 @@ impl xcm_executor::Config for XcmConfig {
 	type UniversalAliases = Nothing;
 	type CallDispatcher = RuntimeCall;
 	type SafeCallFilter = Everything;
+	type Aliasers = ();
+	type TransactionalProcessor = ();
+	type HrmpNewChannelOpenRequestHandler = ();
+	type HrmpChannelAcceptedHandler = ();
+	type HrmpChannelClosingHandler = ();
 }
 
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, AnyNetwork>;

@@ -14,12 +14,10 @@ use frame_system::limits::BlockWeights;
 use frame_support::weights::constants::BlockExecutionWeight;
 use frame_support::weights::constants::ExtrinsicBaseWeight;
 use frame_support::pallet_prelude::DispatchClass;
-use sp_version::RuntimeVersion;
 use xcm_builder::FrameTransactionalProcessor;
 use frame_support::traits::Nothing;
 use polkadot_runtime_common::MAXIMUM_BLOCK_WEIGHT;
 use polkadot_runtime_common::AVERAGE_ON_INITIALIZE_RATIO;
-use polkadot_runtime_common::BlockHashCount;
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use frame_support::{
 	construct_runtime, match_types,
@@ -27,7 +25,7 @@ use frame_support::{
 	traits::{
 		AsEnsureOriginWithArg, ConstU32, ConstU64, Everything,
 	},
-	weights::constants::{RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND},
+	weights::constants::WEIGHT_REF_TIME_PER_SECOND,
 };
 use frame_system::{EnsureRoot};
 pub use sp_runtime::{
@@ -89,10 +87,8 @@ type UncheckedExtrinsics = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 construct_runtime!(
-	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsics,
+	pub enum Test 
+
 	{
 		System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
 		Balances: pallet_balances,
