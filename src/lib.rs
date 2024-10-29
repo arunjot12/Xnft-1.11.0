@@ -25,13 +25,14 @@
    
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+
 #[cfg(test)]
 pub mod mock;
 #[cfg(test)]
 pub mod test;
-
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
 
 use cumulus_pallet_xcm::Origin as CumulusOrigin;
 pub use pallet::*;
