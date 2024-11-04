@@ -6,6 +6,7 @@ use sp_runtime::BuildStorage;
 use sp_runtime::AccountId32;
 pub mod para;
 pub mod relay;
+pub mod message_queue;
 use crate as xnft;
 use xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain, TestExt};
 
@@ -22,7 +23,7 @@ decl_test_parachain! {
 	pub struct Para1 {
 		Runtime = para::Test,
 		XcmpMessageHandler = para::XcmpQueue,
-		DmpMessageHandler = para::DmpQueue,
+		DmpMessageHandler = para::MsgQueue,
 		new_ext = para_ext(4),
 	}
 }
@@ -31,7 +32,7 @@ decl_test_parachain! {
 	pub struct Para2 {
 		Runtime = para::Test,
 		XcmpMessageHandler = para::XcmpQueue,
-		DmpMessageHandler = para::DmpQueue,
+		DmpMessageHandler = para::MsgQueue,
 		new_ext = para_ext(4),
 	}
 }
@@ -61,7 +62,6 @@ pub type RelayBalances = pallet_balances::Pallet<relay::Test>;
 pub type ParaChain1 = xnft::Pallet<para::Test>;
 pub type NFT = pallet_nfts::Pallet<para::Test>;
 pub fn para_ext(para_id: u32) -> TestExternalities {
-
 	let mut t = frame_system::GenesisConfig::<crate::test::para::Test>::default()
 		.build_storage()
 		.unwrap();

@@ -3,6 +3,7 @@ use crate::{self as pallet_xnft};
 use frame_support::derive_impl;
 use std::sync::Arc;
 use sp_runtime::BuildStorage;
+use crate::mock::message_queue::pallet as mock_msg_queue;
 use frame_support::traits::TransformOrigin;
 use parachains_common::message_queue::ParaIdToSibling;
 use cumulus_primitives_core::AggregateMessageOrigin as MessageOriginAggregate;
@@ -48,7 +49,6 @@ use xcm_builder::{
 	SovereignSignedViaLocation, TakeWeightCredit,
 };
 use xcm_executor::XcmExecutor;
-
 pub mod currency {
 	pub type Balance = u64;
 	pub const MILLICENTS: Balance = 1_000_000_000;
@@ -97,6 +97,7 @@ construct_runtime!(
 		MessageQueue: pallet_message_queue,
 		PolkadotXcm: pallet_xcm,
 		Xnft: pallet_xnft,
+		MsgQueue:mock_msg_queue,
 		ParachainSystem: cumulus_pallet_parachain_system,
 		NFT:pallet_nfts::{Pallet, Call, Storage, Event<T>},
 	}
@@ -170,6 +171,11 @@ impl pallet_message_queue::Config for Test {
 	type QueuePausedQuery = ();
 	type WeightInfo = ();
 	type IdleMaxServiceWeight = ();
+}
+
+impl mock_msg_queue::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type XcmExecutor = XcmExecutor<XcmConfig>;
 }
 
 parameter_types! {
@@ -250,7 +256,7 @@ parameter_types! {
 }
 
 parameter_types! {
-	pub const RelayLocation: MultiLocation = MultiLocation::parent();
+	pub const RelayLocation: Location = Here.into_location();
 	pub const RelayNetwork: Option<NetworkId> = None;
 	pub const AnyNetwork: Option<cumulus_primitives_core::NetworkId> = None;
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
@@ -287,21 +293,25 @@ parameter_types! {
 }
 
 parameter_types! {
-	pub const Roc: MultiAssetFilter = Wild(AllOf { fun: WildFungible, id: Concrete(RelayLocation::get()) });
-	pub const Para: cumulus_primitives_core::Location = cumulus_primitives_core::Location {
-		parents: 1,
-		interior: cumulus_primitives_core::Junctions::X1(Arc::new([cumulus_primitives_core::Junction::Parachain(2000); 1])),
-	};
-	pub const Para2: cumulus_primitives_core::Location = cumulus_primitives_core::Location {
-		parents: 1,
-		interior: cumulus_primitives_core::Junctions::X1(Arc::new([cumulus_primitives_core::Junction::Parachain(2001); 1])),
-	};
-	pub const OurchainPara: (MultiAssetFilter, cumulus_primitives_core::Location) = (Roc::get(), Para::get());
-	pub const OurchainPara2: (MultiAssetFilter, cumulus_primitives_core::Location) = (Roc::get(), Para2::get());
+	// pub const Roc: xcm_simulator::AssetFilter = Wild(AllOf { fun: WildFungible, id: xcm_simulator::AssetId(RelayLocation::get()) });
+	// pub const Para: cumulus_primitives_core::Location = cumulus_primitives_core::Location {
+	// 	parents: 1,
+	// 	interior: cumulus_primitives_core::Junctions::X1(Arc::new([cumulus_primitives_core::Junction::Parachain(2000); 1])),
+	// };
+	// pub const Para2: cumulus_primitives_core::Location = cumulus_primitives_core::Location {
+	// 	parents: 1,
+	// 	interior: cumulus_primitives_core::Junctions::X1(Arc::new([cumulus_primitives_core::Junction::Parachain(2001); 1])),
+	// };
+	// pub const OurchainPara: (MultiAssetFilter, cumulus_primitives_core::Location) = (Roc::get(), Para::get());
+	// pub const OurchainPara2: (MultiAssetFilter, cumulus_primitives_core::Location) = (Roc::get(), Para2::get());
+	// pub Tick: Location = Parachain(2000).into_location();
+	// pub Trick: Location = Parachain(2001).into_location();
+	// pub OurchainPara: (xcm_simulator::AssetFilter, Location) = (Roc::get(), Tick::get());
+	// pub OurchainPara2: (xcm_simulator::AssetFilter, Location) = (Roc::get(), Trick::get());
 
 }
 
-pub type TrustedTeleporters = (xcm_builder::Case<OurchainPara>, xcm_builder::Case<OurchainPara2>);
+// pub type TrustedTeleporters = (xcm_builder::Case<OurchainPara>, xcm_builder::Case<OurchainPara2>);
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
@@ -422,6 +432,7 @@ impl pallet_xnft::Config for Test {
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	<frame_system::GenesisConfig<Test> as BuildStorage>::build_storage(&frame_system::GenesisConfig::default()).unwrap().into()
 }
+
 pub struct ExtBuilder;
 
 impl Default for ExtBuilder {
