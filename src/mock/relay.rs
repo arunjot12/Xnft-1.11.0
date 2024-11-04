@@ -7,7 +7,6 @@ use frame_support::traits::HandleMessage;
 use cumulus_primitives_core::relay_chain::CandidateHash;
 use sp_runtime::BuildStorage;
 use frame_support::traits::TransformOrigin;
-use parachains_common::message_queue::ParaIdToSibling;
 use sp_runtime::traits::IdentityLookup;
 use primitives::AccountIndex;
 use frame_support::traits::QueueFootprint;
@@ -32,10 +31,10 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		ConstU32, ConstU64, Currency, Everything, Nothing,
-		ProcessMessage, ProcessMessageError,
 	},
-	weights::{Weight, WeightMeter},
+	weights::Weight,
 };
+use xcm_simulator::UmpQueueId;
 use crate::test::para::ParachainSystem;
 use polkadot_parachain_primitives::primitives::ValidationCode;
 use sp_runtime::traits::AccountIdConversion;
@@ -72,10 +71,9 @@ use polkadot_runtime_parachains::{disputes, inclusion, paras, scheduler, session
 
 use polkadot_runtime_parachains::{
 	configuration,
-	inclusion::{AggregateMessageOrigin, UmpQueueId},
 	origin, shared,
 };
-pub type BlockNumber = u32;
+pub type BlockNumber = u64;
 pub type Index = u32;
 use xcm::v3::prelude::*;
 use xcm_builder::{
@@ -83,9 +81,7 @@ use xcm_builder::{
 	SignedToAccountId32, TakeWeightCredit,
 };
 use xcm_executor::XcmExecutor;
-
 type Origin = <Test as frame_system::Config>::RuntimeOrigin;
-
 type Balance = u64;
 
 pub fn root_user() -> Origin {
@@ -145,8 +141,8 @@ where
 	type OverarchingCall = RuntimeCall;
 }
 impl paras_sudo_wrapper::Config for Test {}
-pub mod mock_assigner {
 
+pub mod mock_assigner {
 	use super::*;
 	use crate::test::relay::scheduler::common::AssignmentProvider;
 	pub use pallet::*;
@@ -155,8 +151,7 @@ pub mod mock_assigner {
 	#[frame_support::pallet]
 	pub mod pallet {
 		use frame_support::pallet_prelude::StorageValue;
-
-use super::*;
+		use super::*;
 
 		#[pallet::pallet]
 		#[pallet::without_storage_info]
@@ -406,7 +401,7 @@ impl scheduler::Config for Test {
 impl disputes::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RewardValidators = Self;
-	type SlashingHandler = Self;
+	type SlashingHandler = ();
 	type WeightInfo = disputes::TestWeightInfo;
 }
 
@@ -504,10 +499,17 @@ impl cumulus_pallet_xcmp_queue::Config for Test {
 	type ControllerOrigin = EnsureRoot<AccountId>;
 	type ControllerOriginConverter = ();
 	type WeightInfo = ();
-	type XcmpQueue = TransformOrigin<MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSibling>;
+	type XcmpQueue = TransformOrigin<MessageQueue, polkadot_runtime_parachains::inclusion::AggregateMessageOrigin, ParaId, ParaIdToSibling>;
 	type PriceForSiblingDelivery = NoPriceForMessageDelivery<ParaId>;
 	type MaxInboundSuspended = sp_core::ConstU32<1_000>;
 }
+
+pub struct ParaIdToSibling;
+impl sp_runtime::traits::Convert<ParaId, polkadot_runtime_parachains::inclusion::AggregateMessageOrigin> for ParaIdToSibling {
+	fn convert(para_id: ParaId) -> polkadot_runtime_parachains::inclusion::AggregateMessageOrigin {
+		polkadot_runtime_parachains::inclusion::AggregateMessageOrigin::Ump(UmpQueueId::Para(para_id))
+		}}
+
 parameter_types! {
 	pub const RelayLocation: cumulus_primitives_core::Location = cumulus_primitives_core::Location::parent();
 	pub const RelayNetwork: Option<NetworkId> = None;
@@ -525,7 +527,7 @@ parameter_types! {
 parameter_types! {
 	/// The amount of weight an XCM operation takes. This is a safe overestimate.
 	/// The asset ID for the asset that we use to pay for message delivery fees.
-	pub FeeAssetId: cumulus_primitives_core::AssetId = Concrete(RelayLocation::get());
+	pub FeeAssetId: cumulus_primitives_core::AssetId = cumulus_primitives_core::AssetId(RelayLocation::get());
 	/// The base fee for the message delivery fees.
 	pub const BaseDeliveryFee: u64 = CENTS.saturating_mul(3);
 }
@@ -661,35 +663,15 @@ parameter_types! {
 	pub const MessageQueueMaxStale: u32 = 16;
 }
 
-pub struct MessageProcessor;
-impl ProcessMessage for MessageProcessor {
-	type Origin = AggregateMessageOrigin;
-
-	fn process_message(
-		message: &[u8],
-		origin: Self::Origin,
-		meter: &mut WeightMeter,
-		id: &mut [u8; 32],
-	) -> Result<bool, ProcessMessageError> {
-		let para = match origin {
-			AggregateMessageOrigin::Ump(UmpQueueId::Para(para)) => para,
-		};
-		xcm_builder::ProcessXcmMessage::<Junction, xcm_executor::XcmExecutor<XcmConfig>, RuntimeCall>::process_message(
-			message,
-			Junction::Parachain(para.into()),
-			meter,
-			id,
-		)
-	}
-}
-
 impl pallet_message_queue::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Size = u32;
 	type HeapSize = MessageQueueHeapSize;
 	type MaxStale = MessageQueueMaxStale;
 	type ServiceWeight = MessageQueueServiceWeight;
-	type MessageProcessor = MessageProcessor;
+	type MessageProcessor = pallet_message_queue::mock_helpers::NoopMessageProcessor<
+		polkadot_runtime_parachains::inclusion::AggregateMessageOrigin,
+	>;
 	type QueueChangeHandler = ();
 	type QueuePausedQuery = ();
 	type WeightInfo = ();

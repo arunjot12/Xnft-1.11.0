@@ -1,12 +1,11 @@
 #![cfg(test)]
 use crate::{self as pallet_xnft};
 use frame_support::derive_impl;
-use crate::test::relay::MessageQueue;
 use std::sync::Arc;
 use sp_runtime::BuildStorage;
 use frame_support::traits::TransformOrigin;
 use parachains_common::message_queue::ParaIdToSibling;
-use cumulus_primitives_core::AggregateMessageOrigin;
+use cumulus_primitives_core::AggregateMessageOrigin as MessageOriginAggregate;
 use polkadot_runtime_common::NORMAL_DISPATCH_RATIO;
 use frame_system::limits::BlockLength;
 use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
@@ -95,6 +94,7 @@ construct_runtime!(
 		XcmpQueue: cumulus_pallet_xcmp_queue,
 		DmpQueue: cumulus_pallet_dmp_queue,
 		CumulusXcm: cumulus_pallet_xcm,
+		MessageQueue: pallet_message_queue,
 		PolkadotXcm: pallet_xcm,
 		Xnft: pallet_xnft,
 		ParachainSystem: cumulus_pallet_parachain_system,
@@ -104,7 +104,7 @@ construct_runtime!(
 
 parameter_types! {
 	pub const SS58Prefix: u8 = 42;
-	pub const RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
+	pub const RelayOrigin: MessageOriginAggregate = MessageOriginAggregate::Parent;
 	pub RuntimeBlockLength: BlockLength =
 		BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
 	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
@@ -135,6 +135,7 @@ impl frame_system::Config for Test {
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
+	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 }
 
 impl cumulus_pallet_parachain_system::Config for Test {
@@ -148,6 +149,27 @@ impl cumulus_pallet_parachain_system::Config for Test {
 	type CheckAssociatedRelayNumber = RelayNumberStrictlyIncreases;
 	type DmpQueue = frame_support::traits::EnqueueWithOrigin<MessageQueue, RelayOrigin>;
 	type WeightInfo = ();
+}
+
+parameter_types! {
+	pub MessageQueueServiceWeight: Weight = Weight::from_parts(1_000_000_000, 1_000_000);
+	pub const MessageQueueHeapSize: u32 = 65_536;
+	pub const MessageQueueMaxStale: u32 = 16;
+}
+
+impl pallet_message_queue::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type Size = u32;
+	type HeapSize = MessageQueueHeapSize;
+	type MaxStale = MessageQueueMaxStale;
+	type ServiceWeight = MessageQueueServiceWeight;
+	type MessageProcessor = pallet_message_queue::mock_helpers::NoopMessageProcessor<
+		cumulus_primitives_core::AggregateMessageOrigin,
+	>;
+	type QueueChangeHandler = ();
+	type QueuePausedQuery = ();
+	type WeightInfo = ();
+	type IdleMaxServiceWeight = ();
 }
 
 parameter_types! {
@@ -322,7 +344,7 @@ impl cumulus_pallet_xcmp_queue::Config for Test {
 	type WeightInfo = ();
 	type PriceForSiblingDelivery = NoPriceForMessageDelivery<ParaId>;
 	type MaxInboundSuspended = sp_core::ConstU32<1_000>;
-	type XcmpQueue = TransformOrigin<MessageQueue, cumulus_primitives_core::AggregateMessageOrigin, ParaId, ParaIdToSibling>;
+	type XcmpQueue = TransformOrigin<MessageQueue,MessageOriginAggregate, ParaId, ParaIdToSibling>;
 }
 
 impl cumulus_pallet_dmp_queue::Config for Test {
